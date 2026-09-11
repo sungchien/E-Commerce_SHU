@@ -1,19 +1,48 @@
 ---
 puppeteer:
   displayHeaderFooter: true
-  headerTemplate: '<div style="font-size: 10px; margin: 0 auto;">第十二章：UCI Online Retail 交易 Log 產品維度 EDA 與熱門商品推薦機制</div>'
-  footerTemplate: '<div style="font-size: 10px; margin: 0 auto;">第 <span class="pageNumber"></span> 頁 / 共 <span class="totalPages"></span> 頁</div>'
+  scale: 1.15
+  headerTemplate: '<div style="font-size: 11px; margin: 0 auto;">第十二章：UCI Online Retail 交易 Log 產品維度 EDA 與熱門商品推薦機制</div>'
+  footerTemplate: '<div style="font-size: 11px; margin: 0 auto;">第 <span class="pageNumber"></span> 頁 / 共 <span class="totalPages"></span> 頁</div>'
   margin:
     top: "1.5cm"
     bottom: "1.5cm"
     left: "1.5cm"
     right: "1.5cm"
 ---
+
 <style>
-  h2 {
-    page-break-before: always;
+  /* 全域字型、字級與行距 */
+  body {
+    font-size: 13pt !important;
+    line-height: 1.7 !important;
+    font-family: "Microsoft JhengHei", "PingFang TC", "Helvetica Neue", sans-serif;
+  }
+
+  /* 階層標題微調 */
+  h1 { font-size: 24pt !important; margin-bottom: 0.5em !important; }
+  h2 { font-size: 18pt !important; page-break-before: always; }
+  h3 { font-size: 15pt !important; }
+  h4 { font-size: 13.5pt !important; }
+
+  /* 表格文字放大與排版優化 */
+  table, th, td {
+    font-size: 12pt !important;
+    line-height: 1.5 !important;
+  }
+
+  /* 程式碼區塊 */
+  pre, code {
+    font-size: 11.5pt !important;
+    font-family: Consolas, "Courier New", monospace !important;
+  }
+
+  /* Mermaid 流程圖節點字體放大 */
+  .mermaid text {
+    font-size: 14px !important;
   }
 </style>
+
 ---
 
 # 第十二章：UCI Online Retail 交易 Log 產品維度 EDA 與熱門商品推薦機制
