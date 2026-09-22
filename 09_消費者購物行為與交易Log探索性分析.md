@@ -14,32 +14,35 @@ puppeteer:
 <style>
   /* 全域字型、字級與行距 */
   body {
-    font-size: 13pt !important;
+    font-size: 16pt !important;
     line-height: 1.7 !important;
     font-family: "Microsoft JhengHei", "PingFang TC", "Helvetica Neue", sans-serif;
   }
 
   /* 階層標題微調 */
-  h1 { font-size: 24pt !important; margin-bottom: 0.5em !important; }
-  h2 { font-size: 18pt !important; page-break-before: always; }
-  h3 { font-size: 15pt !important; }
-  h4 { font-size: 13.5pt !important; }
+  h1 { font-size: 28pt !important; margin-bottom: 0.5em !important; }
+  h2 { font-size: 22pt !important; page-break-before: always; }
+  h3 { font-size: 18pt !important; }
+  h4 { font-size: 15pt !important; }
 
   /* 表格文字放大與排版優化 */
   table, th, td {
-    font-size: 12pt !important;
+    font-size: 16pt !important;
     line-height: 1.5 !important;
   }
 
   /* 程式碼區塊 */
   pre, code {
-    font-size: 11.5pt !important;
+    font-size: 16pt !important;
     font-family: Consolas, "Courier New", monospace !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
   }
 
   /* Mermaid 流程圖節點字體放大 */
   .mermaid text {
-    font-size: 14px !important;
+    font-size: 16px !important;
   }
 </style>
 
@@ -239,25 +242,37 @@ flowchart TD
 
 ```python
 # 1. 檢視缺失值與異常值狀況
-print("CustomerID 缺失筆數:", df_raw['CustomerID'].isnull().sum())
-print("數量 <= 0 的銷退筆數:", (df_raw['Quantity'] <= 0).sum())
-print("單價 <= 0 的異常筆數:", (df_raw['UnitPrice'] <= 0).sum())
+print("CustomerID 缺失筆數:",
+      df_raw['CustomerID'].isnull().sum())
+print("數量 <= 0 的銷退筆數:",
+      (df_raw['Quantity'] <= 0).sum())
+print("單價 <= 0 的異常筆數:",
+      (df_raw['UnitPrice'] <= 0).sum())
 
 # 2. 執行資料清洗管道 (Data Cleaning Pipeline)
 df_clean = df_raw.dropna(subset=['CustomerID']).copy()
-df_clean = df_clean[(df_clean['Quantity'] > 0) & (df_clean['UnitPrice'] > 0)].copy()
+df_clean = df_clean[
+    (df_clean['Quantity'] > 0) & (df_clean['UnitPrice'] > 0)
+].copy()
 
 # 轉換資料型態
 df_clean['CustomerID'] = df_clean['CustomerID'].astype(int)
-df_clean['InvoiceDate'] = pd.to_datetime(df_clean['InvoiceDate'])
+df_clean['InvoiceDate'] = pd.to_datetime(
+    df_clean['InvoiceDate']
+)
 
 # 計算單筆明細總金額 (Revenue)
-df_clean['Revenue'] = df_clean['Quantity'] * df_clean['UnitPrice']
+df_clean['Revenue'] = (
+    df_clean['Quantity'] * df_clean['UnitPrice']
+)
 
 print(f"清洗後有效交易紀錄: {len(df_clean)} 筆")
-print(f"獨立顧客人數 (Unique Customers): {df_clean['CustomerID'].nunique()} 人")
-print(f"總交易訂單數 (Unique Invoices): {df_clean['InvoiceNo'].nunique()} 張")
-print(f"總產生營收金額: ${df_clean['Revenue'].sum():,.2f} 英鎊")
+print(f"獨立顧客人數 (Unique Customers): "
+      f"{df_clean['CustomerID'].nunique()} 人")
+print(f"總交易訂單數 (Unique Invoices): "
+      f"{df_clean['InvoiceNo'].nunique()} 張")
+print(f"總產生營收金額: "
+      f"${df_clean['Revenue'].sum():,.2f} 英鎊")
 ```
 
 ---
@@ -304,8 +319,12 @@ customer_df = df_clean.groupby('CustomerID').agg(
 ).reset_index()
 
 # 2. 計算平均客單價 (AOV) 與靜止天數 (Recency)
-customer_df['avg_order_value'] = customer_df['total_revenue'] / customer_df['orders']
-customer_df['recency'] = (snapshot_date - customer_df['last_purchase']).dt.days
+customer_df['avg_order_value'] = (
+    customer_df['total_revenue'] / customer_df['orders']
+)
+customer_df['recency'] = (
+    snapshot_date - customer_df['last_purchase']
+).dt.days
 
 # 3. 撰寫統計摘要函數 (包含 Std, IQR, Skewness)
 def get_advanced_stats(df, cols):
@@ -333,29 +352,57 @@ summary_stats = get_advanced_stats(customer_df, metrics)
 print("=== 顧客維度全方位統計摘要表 ===")
 print(summary_stats.round(2))
 
-# 4. 使用 Seaborn 繪製顧客維度四大指標分佈圖 (驗證正偏斜 / 右偏斜 Positive Skewness)
+# 4. 繪製顧客四大指標分佈圖 (驗證正偏斜 Positive Skewness)
 fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
-sns.histplot(customer_df['orders'], kde=True, ax=axes[0, 0], color='navy', bins=30)
-axes[0, 0].set_title(f"訂單數 (orders) 分佈圖 (Skewness: {customer_df['orders'].skew():.2f})", fontsize=12)
+sns.histplot(
+    customer_df['orders'], kde=True,
+    ax=axes[0, 0], color='navy', bins=30
+)
+axes[0, 0].set_title(
+    f"訂單數 (orders) 分佈圖\n"
+    f"(Skewness: {customer_df['orders'].skew():.2f})",
+    fontsize=11
+)
 axes[0, 0].set_xlabel("訂單數 (次)", fontsize=11)
 axes[0, 0].set_ylabel("顧客人數 (Count)", fontsize=11)
 axes[0, 0].grid(True, linestyle=':', alpha=0.6)
 
-sns.histplot(customer_df['total_revenue'], kde=True, ax=axes[0, 1], color='crimson', bins=30)
-axes[0, 1].set_title(f"總消費金額 (total_revenue) 分佈圖 (Skewness: {customer_df['total_revenue'].skew():.2f})", fontsize=12)
+sns.histplot(
+    customer_df['total_revenue'], kde=True,
+    ax=axes[0, 1], color='crimson', bins=30
+)
+axes[0, 1].set_title(
+    f"總消費金額 (total_revenue) 分佈圖\n"
+    f"(Skewness: {customer_df['total_revenue'].skew():.2f})",
+    fontsize=11
+)
 axes[0, 1].set_xlabel("總消費金額 (英鎊)", fontsize=11)
 axes[0, 1].set_ylabel("顧客人數 (Count)", fontsize=11)
 axes[0, 1].grid(True, linestyle=':', alpha=0.6)
 
-sns.histplot(customer_df['avg_order_value'], kde=True, ax=axes[1, 0], color='teal', bins=30)
-axes[1, 0].set_title(f"平均客單價 (AOV) 分佈圖 (Skewness: {customer_df['avg_order_value'].skew():.2f})", fontsize=12)
+sns.histplot(
+    customer_df['avg_order_value'], kde=True,
+    ax=axes[1, 0], color='teal', bins=30
+)
+axes[1, 0].set_title(
+    f"平均客單價 (AOV) 分佈圖\n"
+    f"(Skewness: {customer_df['avg_order_value'].skew():.2f})",
+    fontsize=11
+)
 axes[1, 0].set_xlabel("平均客單價 (英鎊)", fontsize=11)
 axes[1, 0].set_ylabel("顧客人數 (Count)", fontsize=11)
 axes[1, 0].grid(True, linestyle=':', alpha=0.6)
 
-sns.histplot(customer_df['recency'], kde=True, ax=axes[1, 1], color='purple', bins=30)
-axes[1, 1].set_title(f"靜止天數 (recency) 分佈圖 (Skewness: {customer_df['recency'].skew():.2f})", fontsize=12)
+sns.histplot(
+    customer_df['recency'], kde=True,
+    ax=axes[1, 1], color='purple', bins=30
+)
+axes[1, 1].set_title(
+    f"靜止天數 (recency) 分佈圖\n"
+    f"(Skewness: {customer_df['recency'].skew():.2f})",
+    fontsize=11
+)
 axes[1, 1].set_xlabel("靜止天數 (天)", fontsize=11)
 axes[1, 1].set_ylabel("顧客人數 (Count)", fontsize=11)
 axes[1, 1].grid(True, linestyle=':', alpha=0.6)
@@ -399,17 +446,22 @@ plt.show()
 ```python
 # 1. 計算 AOV 之第 95 分位數 (P95 Threshold)
 p95_aov = customer_df['avg_order_value'].quantile(0.95)
-print(f"AOV 之 95 分位數門檻值 (P95 Threshold): ${p95_aov:.2f} 英鎊")
+print(f"AOV 之 95 分位數門檻值: ${p95_aov:.2f} 英鎊")
 
 # 2. 對 AOV 進行 P95 封頂截斷 (Quantile Capping)
-customer_df['aov_capped'] = np.clip(customer_df['avg_order_value'], a_min=None, a_max=p95_aov)
+customer_df['aov_capped'] = np.clip(
+    customer_df['avg_order_value'],
+    a_min=None, a_max=p95_aov
+)
 
 # 3. 比較修正前後之 AOV 統計指標
 raw_aov_mean = customer_df['avg_order_value'].mean()
 capped_aov_mean = customer_df['aov_capped'].mean()
 
-print(f"原始 AOV 平均值: ${raw_aov_mean:.2f} 英鎊 (偏斜度: {customer_df['avg_order_value'].skew():.2f})")
-print(f"修正後 (P95 Capped) AOV 平均值: ${capped_aov_mean:.2f} 英鎊 (偏斜度: {customer_df['aov_capped'].skew():.2f})")
+print(f"原始 AOV 平均值: ${raw_aov_mean:.2f} 英鎊 "
+      f"(偏斜度: {customer_df['avg_order_value'].skew():.2f})")
+print(f"修正後 (P95 Capped) AOV 平均值: ${capped_aov_mean:.2f} 英鎊 "
+      f"(偏斜度: {customer_df['aov_capped'].skew():.2f})")
 ```
 
 #### AOV 離群值修正前後之效果對照表：
@@ -449,10 +501,13 @@ capped_stage1_clv = global_aov_capped * global_freq * global_lifespan
 
 print("=== 第一階段：全局單一 CLV 估算結果 ===")
 print(f"全站顧客數: {len(customer_df)} 人")
-print(f"全局平均流失率 (Recency > 90天): {global_churn_rate * 100:.2f}%")
+print(f"全局平均流失率 (Recency > 90天): "
+      f"{global_churn_rate * 100:.2f}%")
 print(f"全局預期留存生命週期: {global_lifespan:.2f} 年")
-print(f"未修正 AOV 之全局虛高 CLV: ${raw_stage1_clv:,.2f} 英鎊")
-print(f"AOV 離群值修正後之穩健全局 Baseline CLV: ${capped_stage1_clv:,.2f} 英鎊")
+print(f"未修正 AOV 之全局虛高 CLV: "
+      f"${raw_stage1_clv:,.2f} 英鎊")
+print(f"AOV 修正後之穩健全局 Baseline CLV: "
+      f"${capped_stage1_clv:,.2f} 英鎊")
 ```
 
 #### 第一階段全局 CLV 估算之結果與致命痛點剖析：
@@ -483,36 +538,70 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # 1. 將顧客按總消費金額降冪排序
-customer_sorted = customer_df.sort_values(by='total_revenue', ascending=False).reset_index(drop=True)
+customer_sorted = customer_df.sort_values(
+    by='total_revenue', ascending=False
+).reset_index(drop=True)
 
-# 2. 計算顧客累積百分比與營收累積百分比 (Pareto ECDF 累積分佈)
-customer_sorted['cum_revenue'] = customer_sorted['total_revenue'].cumsum()
-customer_sorted['cum_rev_pct'] = customer_sorted['cum_revenue'] / customer_sorted['total_revenue'].sum()
-customer_sorted['customer_rank_pct'] = (customer_sorted.index + 1) / len(customer_sorted)
+# 2. 計算顧客累積百分比與營收累積百分比 (Pareto ECDF)
+customer_sorted['cum_revenue'] = (
+    customer_sorted['total_revenue'].cumsum()
+)
+customer_sorted['cum_rev_pct'] = (
+    customer_sorted['cum_revenue'] /
+    customer_sorted['total_revenue'].sum()
+)
+customer_sorted['customer_rank_pct'] = (
+    (customer_sorted.index + 1) / len(customer_sorted)
+)
 
-# 3. 計算前 1%, 5%, 10%, 20% 與後 50% 顧客之營收貢獻實測數據
+# 3. 計算各分位顧客之營收貢獻實測數據
 ranks = [0.01, 0.05, 0.10, 0.20, 0.50]
 pareto_summary = []
 for r in ranks:
-    cum_rev = customer_sorted[customer_sorted['customer_rank_pct'] <= r]['cum_rev_pct'].max()
+    sub = customer_sorted[
+        customer_sorted['customer_rank_pct'] <= r
+    ]
+    cum_rev = sub['cum_rev_pct'].max()
+    if r == 0.01:
+        tier = '超級 B2B 批發巨擘'
+    elif r <= 0.10:
+        tier = '核心 VIP 顧客群'
+    elif r == 0.20:
+        tier = '帕累托 80/20 基準線'
+    else:
+        tier = '長尾低頻試買客'
     pareto_summary.append({
         '顧客排名分位區間': f"前 {int(r*100)}% 頂級顧客",
         '顧客人數': int(len(customer_sorted) * r),
         '累積營收貢獻度 (%)': f"{cum_rev * 100:.2f}%",
-        '商業分層定位': '超級 B2B 批發巨擘' if r == 0.01 else ('核心 VIP 顧客群' if r <= 0.10 else ('帕累托 80/20 基準線' if r == 0.20 else '長尾低頻試買客'))
+        '商業分層定位': tier
     })
 
 df_pareto = pd.DataFrame(pareto_summary)
-print("=== 帕累托法則 (Pareto Rule) 顧客分級營收貢獻分析表 ===")
+print("=== 帕累托法則顧客分級營收貢獻表 ===")
 print(df_pareto.to_string(index=False))
 
 # 4. 繪製帕累托累積曲線圖 (Pareto Curve)
-top_20_pct_rev = customer_sorted[customer_sorted['customer_rank_pct'] <= 0.20]['cum_rev_pct'].max()
+top_20_pct_rev = customer_sorted[
+    customer_sorted['customer_rank_pct'] <= 0.20
+]['cum_rev_pct'].max()
 plt.figure(figsize=(9, 5))
-plt.plot(customer_sorted['customer_rank_pct'] * 100, customer_sorted['cum_rev_pct'] * 100, color='crimson', linewidth=2.5)
-plt.axvline(x=20, color='gray', linestyle='--', label=f'前 20% 顧客界線 (貢獻 {top_20_pct_rev*100:.1f}% 營收)')
-plt.axhline(y=top_20_pct_rev * 100, color='gray', linestyle='--')
-plt.title("Online Retail 顧客消費金額帕累托累積曲線 (Pareto 80/20 Rule)", fontsize=13, pad=12)
+plt.plot(
+    customer_sorted['customer_rank_pct'] * 100,
+    customer_sorted['cum_rev_pct'] * 100,
+    color='crimson', linewidth=2.5
+)
+plt.axvline(
+    x=20, color='gray', linestyle='--',
+    label=f'前 20% 顧客線 (貢獻 {top_20_pct_rev*100:.1f}%)'
+)
+plt.axhline(
+    y=top_20_pct_rev * 100, color='gray', linestyle='--'
+)
+plt.title(
+    "Online Retail 顧客消費金額帕累托累積曲線 (Pareto 80/20 Rule)",
+    fontsize=12, pad=12
+)
 plt.xlabel("顧客排名累計百分比 (%)", fontsize=11)
 plt.ylabel("營收累計百分比 (%)", fontsize=11)
 plt.legend(loc='lower right')
@@ -549,7 +638,10 @@ df_clean['DayOfWeek'] = df_clean['InvoiceDate'].dt.day_name()
 df_clean['Hour'] = df_clean['InvoiceDate'].dt.hour
 
 # 2. 建立 星期 x 小時 訂單數交叉樞紐表
-day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Sunday'] # 週六無交易資料
+day_order = [
+    'Monday', 'Tuesday', 'Wednesday',
+    'Thursday', 'Friday', 'Sunday'
+] # 週六無交易資料
 pivot_time = df_clean.pivot_table(
     index='DayOfWeek', 
     columns='Hour', 
@@ -559,8 +651,14 @@ pivot_time = df_clean.pivot_table(
 
 # 3. 繪製熱點圖 (Heatmap)
 plt.figure(figsize=(12, 5))
-sns.heatmap(pivot_time, cmap='YlGnBu', annot=False, fmt='d', cbar_kws={'label': '訂單數量'})
-plt.title("電商顧客下單時間熱點圖 (Day of Week vs. Hour of Day)", fontsize=13, pad=12)
+sns.heatmap(
+    pivot_time, cmap='YlGnBu', annot=False,
+    fmt='d', cbar_kws={'label': '訂單數量'}
+)
+plt.title(
+    "電商顧客下單時間熱點圖 (Day of Week vs. Hour)",
+    fontsize=12, pad=12
+)
 plt.xlabel("小時 (Hour of Day)", fontsize=11)
 plt.ylabel("星期 (Day of Week)", fontsize=11)
 plt.tight_layout()
@@ -582,9 +680,15 @@ UCI Online Retail 雖然以英國本土為主，但也涵蓋了數十個歐洲�
 country_stats = df_clean.groupby('Country').agg({
     'Revenue': 'sum',
     'CustomerID': 'nunique'
-}).rename(columns={'Revenue': '總營收 (英鎊)', 'CustomerID': '獨立顧客數'}).sort_values(by='總營收 (英鎊)', ascending=False)
+}).rename(columns={
+    'Revenue': '總營收 (英鎊)',
+    'CustomerID': '獨立顧客數'
+}).sort_values(by='總營收 (英鎊)', ascending=False)
 
-country_stats['營收佔比 (%)'] = (country_stats['總營收 (英鎊)'] / country_stats['總營收 (英鎊)'].sum() * 100).round(2)
+total_rev = country_stats['總營收 (英鎊)'].sum()
+country_stats['營收佔比 (%)'] = (
+    country_stats['總營收 (英鎊)'] / total_rev * 100
+).round(2)
 print("=== 前 5 大國家營收貢獻表 ===")
 print(country_stats.head().round(2))
 ```

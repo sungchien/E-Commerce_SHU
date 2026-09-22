@@ -14,32 +14,35 @@ puppeteer:
 <style>
   /* 全域字型、字級與行距 */
   body {
-    font-size: 13pt !important;
+    font-size: 16pt !important;
     line-height: 1.7 !important;
     font-family: "Microsoft JhengHei", "PingFang TC", "Helvetica Neue", sans-serif;
   }
 
   /* 階層標題微調 */
-  h1 { font-size: 24pt !important; margin-bottom: 0.5em !important; }
-  h2 { font-size: 18pt !important; page-break-before: always; }
-  h3 { font-size: 15pt !important; }
-  h4 { font-size: 13.5pt !important; }
+  h1 { font-size: 28pt !important; margin-bottom: 0.5em !important; }
+  h2 { font-size: 22pt !important; page-break-before: always; }
+  h3 { font-size: 18pt !important; }
+  h4 { font-size: 15pt !important; }
 
   /* 表格文字放大與排版優化 */
   table, th, td {
-    font-size: 12pt !important;
+    font-size: 16pt !important;
     line-height: 1.5 !important;
   }
 
   /* 程式碼區塊 */
   pre, code {
-    font-size: 11.5pt !important;
+    font-size: 16pt !important;
     font-family: Consolas, "Courier New", monospace !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
   }
 
   /* Mermaid 流程圖節點字體放大 */
   .mermaid text {
-    font-size: 14px !important;
+    font-size: 16px !important;
   }
 </style>
 
@@ -126,11 +129,11 @@ snapshot_date = max_date + dt.timedelta(days=1)
 print(f"資料庫最後交易時間: {max_date}")
 print(f"RFM 分析基準日 (Snapshot Date): {snapshot_date}")
 
-# 2. 使用 groupby('CustomerID') 進行 RFM 三大維度聚合
+# 2. 使用 groupby('CustomerID') 進行 RFM 聚合
 rfm_df = df_clean.groupby('CustomerID').agg({
-    'InvoiceDate': lambda x: (snapshot_date - x.max()).days, # Recency: 距今天數
-    'InvoiceNo': 'nunique',                                  # Frequency: 獨立訂單數
-    'Revenue': 'sum'                                         # Monetary: 總消費金額
+    'InvoiceDate': lambda x: (snapshot_date - x.max()).days,
+    'InvoiceNo': 'nunique',
+    'Revenue': 'sum'
 }).reset_index()
 
 # 3. 重命名欄位名稱為標準 RFM 標籤
@@ -166,11 +169,17 @@ rfm_stats = get_rfm_advanced_stats(rfm_df, rfm_cols)
 print("=== RFM 特徵全方位進階統計摘要表 ===")
 print(rfm_stats.round(2))
 
-# 5. 使用 Seaborn 繪製 RFM 三大指標分布圖 (證實正偏斜 / 右偏斜 Positive Skewness)
+# 5. 繪製 RFM 指標分布圖 (證實正偏斜 Positive Skewness)
 fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 for i, col in enumerate(rfm_cols):
-    sns.histplot(np.log1p(rfm_df[col]), kde=True, ax=axes[i], color='indigo')
-    axes[i].set_title(f"{col} 對數分佈圖 (Skewness: {rfm_df[col].skew():.2f})", fontsize=12)
+    sns.histplot(
+        np.log1p(rfm_df[col]), kde=True,
+        ax=axes[i], color='indigo'
+    )
+    axes[i].set_title(
+        f"{col} 對數分佈 (Skew: {rfm_df[col].skew():.2f})",
+        fontsize=11
+    )
     axes[i].set_xlabel(f"log1p({col})", fontsize=11)
     axes[i].set_ylabel("顧客人數 (Count)", fontsize=11)
     axes[i].grid(True, linestyle=':', alpha=0.6)
@@ -215,20 +224,36 @@ plt.show()
 ```python
 # 使用四分位數 (Quartiles 1-4) 進行規則式 RFM 評分
 r_labels = [4, 3, 2, 1]
-rfm_df['R_Score'] = pd.qcut(rfm_df['Recency'], q=4, labels=r_labels).astype(int)
+rfm_df['R_Score'] = pd.qcut(
+    rfm_df['Recency'], q=4, labels=r_labels
+).astype(int)
 
-# F_Score: 次數越多越好 (由於 Frequency 有大量重複值，使用 rank(method='first'))
-rfm_df['F_Score'] = pd.qcut(rfm_df['Frequency'].rank(method='first'), q=4, labels=[1, 2, 3, 4]).astype(int)
+# F_Score: 次數越多越好 (使用 rank 處理重複值)
+rfm_df['F_Score'] = pd.qcut(
+    rfm_df['Frequency'].rank(method='first'),
+    q=4, labels=[1, 2, 3, 4]
+).astype(int)
 
 # M_Score: 金額越多越好
-rfm_df['M_Score'] = pd.qcut(rfm_df['Monetary'], q=4, labels=[1, 2, 3, 4]).astype(int)
+rfm_df['M_Score'] = pd.qcut(
+    rfm_df['Monetary'], q=4, labels=[1, 2, 3, 4]
+).astype(int)
 
 # 計算綜合 RFM 得分與組合標籤
-rfm_df['RFM_Segment'] = rfm_df['R_Score'].astype(str) + rfm_df['F_Score'].astype(str) + rfm_df['M_Score'].astype(str)
-rfm_df['RFM_Score'] = rfm_df[['R_Score', 'F_Score', 'M_Score']].sum(axis=1)
+rfm_df['RFM_Segment'] = (
+    rfm_df['R_Score'].astype(str) +
+    rfm_df['F_Score'].astype(str) +
+    rfm_df['M_Score'].astype(str)
+)
+rfm_df['RFM_Score'] = rfm_df[
+    ['R_Score', 'F_Score', 'M_Score']
+].sum(axis=1)
 
 print("=== 規則式 RFM 評分結果範例 ===")
-print(rfm_df[['CustomerID', 'Recency', 'Frequency', 'Monetary', 'RFM_Segment', 'RFM_Score']].head())
+print(rfm_df[[
+    'CustomerID', 'Recency', 'Frequency',
+    'Monetary', 'RFM_Segment', 'RFM_Score'
+]].head())
 ```
 
 #### 傳統規則式分群的痛點與極限：
@@ -316,10 +341,10 @@ rfm_scaled = pd.DataFrame(
 )
 
 # 4. 檢視 Z-Score 標準化後的統計摘要與偏斜度
-print("=== Z-Score 標準化後特徵矩陣 (Mean=0, Std=1) ===")
+print("=== Z-Score 標準化特徵矩陣 (Mean=0, Std=1) ===")
 print(rfm_scaled.describe().round(2))
 
-print("\n=== Z-Score 標準化後偏斜度 (驗證線性縮放完全保留低偏斜分佈) ===")
+print("\n=== Z-Score 標準化後偏斜度 (線性縮放保留低偏斜) ===")
 print(rfm_scaled.skew().round(2))
 ```
 
@@ -355,8 +380,8 @@ flowchart LR
 
 ```python
 # 假設顧客 A 與 顧客 B 的原始數據：
-# 顧客 A: Recency = 10 天, Frequency = 2 次, Monetary = 1,000 英鎊
-# 顧客 B: Recency = 100 天, Frequency = 2 次, Monetary = 1,000 英鎊
+# 顧客 A: Recency = 10 天, Frequency = 2 次, M = 1000
+# 顧客 B: Recency = 100 天, Frequency = 2 次, M = 1000
 p_A = np.array([10, 2, 1000])
 p_B = np.array([100, 2, 1000])
 
@@ -366,7 +391,7 @@ print(f"未標準化時兩顧客之歐式距離: {dist_raw:.2f}")
 # 若 Monetary 增加 100 英鎊：
 p_C = np.array([10, 2, 1100])
 dist_monetary_change = np.linalg.norm(p_A - p_C)
-print(f"單純金額變動 100 英鎊之距離: {dist_monetary_change:.2f}")
+print(f"金額變動 100 英鎊之距離: {dist_monetary_change:.2f}")
 ```
 
 #### 討論思考題：
@@ -386,8 +411,12 @@ print(f"單純金額變動 100 英鎊之距離: {dist_monetary_change:.2f}")
 from sklearn.preprocessing import PowerTransformer
 
 # 自動搜尋最佳參數 lambda 並進行常態化轉換
-pt = PowerTransformer(method='yeo-johnson', standardize=True)
-rfm_power = pt.fit_transform(rfm_df[['Recency', 'Frequency', 'Monetary']])
+pt = PowerTransformer(
+    method='yeo-johnson', standardize=True
+)
+rfm_power = pt.fit_transform(
+    rfm_df[['Recency', 'Frequency', 'Monetary']]
+)
 ```
 
 #### 2. 分位數轉換 / 均勻-常態映射（Quantile Transformation）
@@ -397,8 +426,12 @@ rfm_power = pt.fit_transform(rfm_df[['Recency', 'Frequency', 'Monetary']])
 from sklearn.preprocessing import QuantileTransformer
 
 # 將極端偏斜資料強制映射為標準常態分佈
-qt = QuantileTransformer(output_distribution='normal', random_state=42)
-rfm_quantile = qt.fit_transform(rfm_df[['Recency', 'Frequency', 'Monetary']])
+qt = QuantileTransformer(
+    output_distribution='normal', random_state=42
+)
+rfm_quantile = qt.fit_transform(
+    rfm_df[['Recency', 'Frequency', 'Monetary']]
+)
 ```
 
 #### 3. 離群值封頂截斷（Winsorization / Quantile Clipping）
@@ -407,7 +440,9 @@ rfm_quantile = qt.fit_transform(rfm_df[['Recency', 'Frequency', 'Monetary']])
 ```python
 # 對 Monetary 進行 P99 封頂截斷
 p99_val = rfm_df['Monetary'].quantile(0.99)
-rfm_df['Monetary_clipped'] = np.clip(rfm_df['Monetary'], a_min=None, a_max=p99_val)
+rfm_df['Monetary_clipped'] = np.clip(
+    rfm_df['Monetary'], a_min=None, a_max=p99_val
+)
 ```
 
 #### 4. 穩健縮放器（Robust Scaling via `RobustScaler`）
@@ -419,7 +454,9 @@ $$z_{\text{robust}} = \frac{x - \text{Median}}{\text{IQR}}$$
 from sklearn.preprocessing import RobustScaler
 
 scaler_robust = RobustScaler()
-rfm_robust = scaler_robust.fit_transform(rfm_df[['Recency', 'Frequency', 'Monetary']])
+rfm_robust = scaler_robust.fit_transform(
+    rfm_df[['Recency', 'Frequency', 'Monetary']]
+)
 ```
 
 #### 5. 分箱離散化（Quantile Discretization）
@@ -428,8 +465,12 @@ rfm_robust = scaler_robust.fit_transform(rfm_df[['Recency', 'Frequency', 'Moneta
 ```python
 from sklearn.preprocessing import KBinsDiscretizer
 
-kbd = KBinsDiscretizer(n_bins=5, encode='ordinal', strategy='quantile')
-rfm_binned = kbd.fit_transform(rfm_df[['Recency', 'Frequency', 'Monetary']])
+kbd = KBinsDiscretizer(
+    n_bins=5, encode='ordinal', strategy='quantile'
+)
+rfm_binned = kbd.fit_transform(
+    rfm_df[['Recency', 'Frequency', 'Monetary']]
+)
 ```
 
 ---
@@ -503,22 +544,37 @@ df_k_eval = pd.DataFrame(k_results)
 print("=== K = 2 ~ 9 分群指標實測數據 ===")
 print(df_k_eval.to_string(index=False))
 
-# 繪製 Elbow Method 與 Silhouette Score 雙軸雙指標評估圖
+# 繪製 Elbow Method 與 Silhouette Score 評估圖
 fig, ax1 = plt.subplots(figsize=(10, 5))
 color = 'tab:blue'
 ax1.set_xlabel('分群數量 (K)', fontsize=12)
-ax1.set_ylabel('WCSS / Inertia (群內平方和)', color=color, fontsize=12)
-ax1.plot(k_range, wcss_list, 'bo-', linewidth=2, markersize=8, label='WCSS (Inertia)')
+ax1.set_ylabel(
+    'WCSS / Inertia (群內平方和)',
+    color=color, fontsize=11
+)
+ax1.plot(
+    k_range, wcss_list, 'bo-',
+    linewidth=2, markersize=8, label='WCSS'
+)
 ax1.tick_params(axis='y', labelcolor=color)
 ax1.grid(True, linestyle=':', alpha=0.6)
 
 ax2 = ax1.twinx()  
 color = 'tab:red'
-ax2.set_ylabel('輪廓係數 (Silhouette Score)', color=color, fontsize=12)
-ax2.plot(k_range, sil_list, 'ro--', linewidth=2, markersize=8, label='Silhouette Score')
+ax2.set_ylabel(
+    '輪廓係數 (Silhouette)',
+    color=color, fontsize=11
+)
+ax2.plot(
+    k_range, sil_list, 'ro--',
+    linewidth=2, markersize=8, label='Silhouette'
+)
 ax2.tick_params(axis='y', labelcolor=color)
 
-plt.title("K-Means 最佳分群數評估 (Elbow Method & Silhouette Score)", fontsize=14, pad=15)
+plt.title(
+    "K-Means 最佳分群數評估 (Elbow & Silhouette)",
+    fontsize=13, pad=15
+)
 fig.tight_layout()
 plt.show()
 ```
@@ -558,15 +614,20 @@ plt.show()
 
 ```python
 # 1. 使用最佳 K=4 訓練模型
-kmeans_final = KMeans(n_clusters=4, random_state=42, n_init=10)
+kmeans_final = KMeans(
+    n_clusters=4, random_state=42, n_init=10
+)
 rfm_df['Cluster'] = kmeans_final.fit_predict(rfm_scaled)
 
 # 2. 計算各群集的顧客人數與佔比
 cluster_counts = rfm_df['Cluster'].value_counts().sort_index()
-cluster_pcts = (cluster_counts / len(rfm_df) * 100).round(2)
+cluster_pcts = (
+    cluster_counts / len(rfm_df) * 100
+).round(2)
 print("=== K=4 顧客分群人數統計 ===")
 for c_id in range(4):
-    print(f"群集 {c_id}: {cluster_counts[c_id]} 人 ({cluster_pcts[c_id]}%)")
+    print(f"群集 {c_id}: {cluster_counts[c_id]} 人 "
+          f"({cluster_pcts[c_id]}%)")
 
 # 3. 計算各群集在原始 RFM 維度上的未轉換平均值 (Un-scaled Real Means)
 cluster_summary = rfm_df.groupby('Cluster').agg({
@@ -622,7 +683,9 @@ for c_id in sorted(rfm_df['Cluster'].unique()):
     
     segmented_clv_list.append({
         '群集 (Cluster)': f'Cluster {c_id}',
-        '顧客人數 (佔比)': f"{n_count} 人 ({n_count/len(rfm_df)*100:.1f}%)",
+        '顧客人數 (佔比)': (
+            f"{n_count} 人 ({n_count/len(rfm_df)*100:.1f}%)"
+        ),
         '平均 Recency': f"{mean_r:.1f} 天",
         '平均 Frequency': f"{mean_f:.1f} 次",
         '專屬 AOV': f"${mean_aov:,.2f} 英鎊",
@@ -632,7 +695,7 @@ for c_id in sorted(rfm_df['Cluster'].unique()):
     })
 
 df_stage2_clv = pd.DataFrame(segmented_clv_list)
-print("=== 第二階段：按客群分級計算 CLV (Stage 2 Segmented CLV) 實測結果 ===")
+print("=== 第二階段：按客群分級計算 CLV 實測結果 ===")
 print(df_stage2_clv.to_string(index=False))
 ```
 
@@ -658,10 +721,13 @@ print(df_stage2_clv.to_string(index=False))
 
 ```python
 # 1. 建立包含標準化特徵與 Cluster 標籤的 DataFrame
-rfm_scaled_df = pd.DataFrame(rfm_scaled_array, columns=['Recency', 'Frequency', 'Monetary'])
+rfm_scaled_df = pd.DataFrame(
+    rfm_scaled_array,
+    columns=['Recency', 'Frequency', 'Monetary']
+)
 rfm_scaled_df['Cluster'] = rfm_df['Cluster']
 
-# 2. 將資料融合成適合 Seaborn 繪製蛇形圖的長格式 (Melted Format)
+# 2. 將資料融合成適合繪製蛇形圖的長格式 (Melted Format)
 rfm_melted = pd.melt(
     rfm_scaled_df.reset_index(),
     id_vars=['Cluster'],
@@ -670,12 +736,19 @@ rfm_melted = pd.melt(
     value_name='Z_Score'
 )
 
-# 3. 繪製蛇形圖 (Snake Plot / Parallel Coordinates)
+# 3. 繪製蛇形圖 (Snake Plot)
 plt.figure(figsize=(10, 6))
-sns.lineplot(data=rfm_melted, x='RFM_Feature', y='Z_Score', hue='Cluster', palette='Set1', marker='o', linewidth=2.5)
-plt.title("Online Retail 各顧客群體 RFM Z-Score 蛇形特徵圖 (Snake Plot)", fontsize=14, pad=15)
-plt.xlabel("RFM 維度特徵", fontsize=12)
-plt.ylabel("標準化分數 (Z-Score)", fontsize=12)
+sns.lineplot(
+    data=rfm_melted, x='RFM_Feature', y='Z_Score',
+    hue='Cluster', palette='Set1',
+    marker='o', linewidth=2.5
+)
+plt.title(
+    "Online Retail 顧客群 RFM Z-Score 蛇形特徵圖 (Snake Plot)",
+    fontsize=13, pad=15
+)
+plt.xlabel("RFM 維度特徵", fontsize=11)
+plt.ylabel("標準化分數 (Z-Score)", fontsize=11)
 plt.grid(True, linestyle=':', alpha=0.6)
 plt.legend(title='顧客群集', loc='upper right')
 plt.tight_layout()

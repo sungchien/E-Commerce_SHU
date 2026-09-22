@@ -14,32 +14,35 @@ puppeteer:
 <style>
   /* 全域字型、字級與行距 */
   body {
-    font-size: 13pt !important;
+    font-size: 16pt !important;
     line-height: 1.7 !important;
     font-family: "Microsoft JhengHei", "PingFang TC", "Helvetica Neue", sans-serif;
   }
 
   /* 階層標題微調 */
-  h1 { font-size: 24pt !important; margin-bottom: 0.5em !important; }
-  h2 { font-size: 18pt !important; page-break-before: always; }
-  h3 { font-size: 15pt !important; }
-  h4 { font-size: 13.5pt !important; }
+  h1 { font-size: 28pt !important; margin-bottom: 0.5em !important; }
+  h2 { font-size: 22pt !important; page-break-before: always; }
+  h3 { font-size: 18pt !important; }
+  h4 { font-size: 15pt !important; }
 
   /* 表格文字放大與排版優化 */
   table, th, td {
-    font-size: 12pt !important;
+    font-size: 16pt !important;
     line-height: 1.5 !important;
   }
 
   /* 程式碼區塊 */
   pre, code {
-    font-size: 11.5pt !important;
+    font-size: 16pt !important;
     font-family: Consolas, "Courier New", monospace !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
   }
 
   /* Mermaid 流程圖節點字體放大 */
   .mermaid text {
-    font-size: 14px !important;
+    font-size: 16px !important;
   }
 </style>
 
@@ -185,7 +188,9 @@ $$\text{Gini} = 1 - (p_0^2 + p_1^2)$$
 ```python
 import pandas as pd
 import numpy as np
-from sklearn.tree import DecisionTreeClassifier, export_text, plot_tree
+from sklearn.tree import (
+    DecisionTreeClassifier, export_text, plot_tree
+)
 import matplotlib.pyplot as plt
 from ucimlrepo import fetch_ucirepo
 
@@ -216,8 +221,10 @@ feature_cols = [
 X_dt = df[feature_cols]
 y_dt = df['conversion']
 
-# 3. 建立並訓練決策樹模型 (設定 max_depth=3 控制樹深以利閱讀)
-dt_model = DecisionTreeClassifier(max_depth=3, criterion='gini', random_state=42)
+# 3. 建立並訓練決策樹模型 (設定 max_depth=3)
+dt_model = DecisionTreeClassifier(
+    max_depth=3, criterion='gini', random_state=42
+)
 dt_model.fit(X_dt, y_dt)
 ```
 
@@ -231,8 +238,8 @@ dt_model.fit(X_dt, y_dt)
 # 提取特徵重要性並整理為 DataFrame
 importance_df = pd.DataFrame({
     '特徵變數': feature_cols,
-    '特徵重要性 (Feature Importance)': dt_model.feature_importances_
-}).sort_values(by='特徵重要性 (Feature Importance)', ascending=False)
+    '特徵重要性': dt_model.feature_importances_
+}).sort_values(by='特徵重要性', ascending=False)
 
 print(importance_df.round(4))
 ```
@@ -277,11 +284,12 @@ plt.show()
 ```text
 |--- duration <= 521.50 (約 8.7 分鐘)
 |   |--- poutcome_success <= 0.50
-|   |   |--- duration <= 206.50 -> 葉節點 (絕大多數未訂閱 y=0)
+|   |   |--- duration <= 206.50 -> 葉 (未訂閱 y=0)
 |   |--- poutcome_success > 0.50
-|   |   |--- duration > 162.50  -> 葉節點 (成功訂閱 y=1)
-|--- duration > 521.50 (超過 8.7 分鐘長通話)
-|   |--- duration > 827.50 (超過 13.8 分鐘超長通話) -> 葉節點 (極高比例成功訂閱 y=1)
+|   |   |--- duration > 162.50  -> 葉 (成功訂閱 y=1)
+|--- duration > 521.50 (>8.7分鐘長通話)
+|   |--- duration > 827.50 (>13.8分鐘超長通話)
+|   |    -> 葉節點 (極高比例成功訂閱 y=1)
 ```
 
 1. 路徑一：黃金成交路徑（長通話 $\text{duration} > 521.5$ 秒）： 當客服與顧客通話時間超過 521.5 秒（約 8.7 分鐘）時，顧客的訂閱機率發生結構性陡升；若通話進一步超過 13.8 分鐘，無論其他特徵為何，成功訂閱率均極高！
@@ -296,23 +304,45 @@ plt.show()
 
 ```python
 # 1. 建立 age_group 離散虛擬變數 (比照第六章)
-df['age_group'] = pd.cut(df['age'], bins=[0, 30, 40, 50, 60, 100], labels=['<30', '30-39', '40-49', '50-59', '60+'], right=False)
-age_dummies = pd.get_dummies(df['age_group'], prefix='age', dtype=int)
-age_feature_cols = ['age_<30', 'age_40-49', 'age_50-59', 'age_60+']
+df['age_group'] = pd.cut(
+    df['age'],
+    bins=[0, 30, 40, 50, 60, 100],
+    labels=['<30', '30-39', '40-49', '50-59', '60+'],
+    right=False
+)
+age_dummies = pd.get_dummies(
+    df['age_group'], prefix='age', dtype=int
+)
+age_feature_cols = [
+    'age_<30', 'age_40-49', 'age_50-59', 'age_60+'
+]
 for col in age_feature_cols:
     df[col] = age_dummies[col]
 
-cols_binned_age = age_feature_cols + ['balance', 'duration', 'campaign', 'housing_code', 'loan_code', 'contact_cellular', 'contact_telephone', 'poutcome_success']
+cols_binned_age = age_feature_cols + [
+    'balance', 'duration', 'campaign',
+    'housing_code', 'loan_code',
+    'contact_cellular', 'contact_telephone',
+    'poutcome_success'
+]
 
-# 2. 分別訓練連續 age 模型與離散 age_group 模型 (max_depth=5)
-dt_cont_5 = DecisionTreeClassifier(max_depth=5, random_state=42).fit(df[feature_cols], df['conversion'])
-dt_bin_5 = DecisionTreeClassifier(max_depth=5, random_state=42).fit(df[cols_binned_age], df['conversion'])
+# 2. 分別訓練連續 age 與離散 age_group 模型
+dt_cont_5 = DecisionTreeClassifier(
+    max_depth=5, random_state=42
+).fit(df[feature_cols], df['conversion'])
+dt_bin_5 = DecisionTreeClassifier(
+    max_depth=5, random_state=42
+).fit(df[cols_binned_age], df['conversion'])
 
 print("=== 連續 age 特徵重要性 (max_depth=5) ===")
-print(pd.Series(dt_cont_5.feature_importances_, index=feature_cols).sort_values(ascending=False).round(4))
+print(pd.Series(
+    dt_cont_5.feature_importances_, index=feature_cols
+).sort_values(ascending=False).round(4))
 
-print("\n=== 離散 age_group 虛擬變數特徵重要性 (max_depth=5) ===")
-print(pd.Series(dt_bin_5.feature_importances_, index=cols_binned_age).sort_values(ascending=False).round(4))
+print("\n=== 離散 age_group 特徵重要性 (max_depth=5) ===")
+print(pd.Series(
+    dt_bin_5.feature_importances_, index=cols_binned_age
+).sort_values(ascending=False).round(4))
 ```
 
 #### 連續年齡 vs. 離散年齡虛擬變數的實測結果對照表：
@@ -361,7 +391,11 @@ print(pd.Series(dt_bin_5.feature_importances_, index=cols_binned_age).sort_value
 我們使用 Scikit-Learn 的 `confusion_matrix` 與 `classification_report` 評估 `max_depth=3` 的決策樹模型：
 
 ```python
-from sklearn.metrics import confusion_matrix, classification_report, accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import (
+    confusion_matrix, classification_report,
+    accuracy_score, precision_score,
+    recall_score, f1_score
+)
 
 # 進行類別預測
 y_pred_dt = dt_model.predict(X_dt)
@@ -369,8 +403,10 @@ y_pred_dt = dt_model.predict(X_dt)
 # 計算混淆矩陣
 cm_dt = confusion_matrix(y_dt, y_pred_dt)
 print("=== 決策樹混淆矩陣 (Confusion Matrix) ===")
-print("TN (真陰性):", cm_dt[0, 0], "| FP (假陽性):", cm_dt[0, 1])
-print("FN (假陰性):", cm_dt[1, 0], "| TP (真陽性):", cm_dt[1, 1])
+print("TN (真陰性):", cm_dt[0, 0],
+      "| FP (假陽性):", cm_dt[0, 1])
+print("FN (假陰性):", cm_dt[1, 0],
+      "| TP (真陽性):", cm_dt[1, 1])
 
 # 計算四大評估指標
 acc = accuracy_score(y_dt, y_pred_dt)

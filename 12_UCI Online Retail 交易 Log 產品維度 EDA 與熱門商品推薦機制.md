@@ -14,32 +14,35 @@ puppeteer:
 <style>
   /* 全域字型、字級與行距 */
   body {
-    font-size: 13pt !important;
+    font-size: 16pt !important;
     line-height: 1.7 !important;
     font-family: "Microsoft JhengHei", "PingFang TC", "Helvetica Neue", sans-serif;
   }
 
   /* 階層標題微調 */
-  h1 { font-size: 24pt !important; margin-bottom: 0.5em !important; }
-  h2 { font-size: 18pt !important; page-break-before: always; }
-  h3 { font-size: 15pt !important; }
-  h4 { font-size: 13.5pt !important; }
+  h1 { font-size: 28pt !important; margin-bottom: 0.5em !important; }
+  h2 { font-size: 22pt !important; page-break-before: always; }
+  h3 { font-size: 18pt !important; }
+  h4 { font-size: 15pt !important; }
 
   /* 表格文字放大與排版優化 */
   table, th, td {
-    font-size: 12pt !important;
+    font-size: 16pt !important;
     line-height: 1.5 !important;
   }
 
   /* 程式碼區塊 */
   pre, code {
-    font-size: 11.5pt !important;
+    font-size: 16pt !important;
     font-family: Consolas, "Courier New", monospace !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
   }
 
   /* Mermaid 流程圖節點字體放大 */
   .mermaid text {
-    font-size: 14px !important;
+    font-size: 16px !important;
   }
 </style>
 
@@ -173,17 +176,27 @@ from ucimlrepo import fetch_ucirepo
 online_retail = fetch_ucirepo(id=352)
 df_raw = online_retail.data.original.copy()
 
-# 2. 基本資料清理：移除 CustomerID 缺失、退貨 (Quantity <= 0) 與免費單價 (UnitPrice <= 0)
+# 2. 基本資料清理：移除 CustomerID 缺失、退貨與免費單價
 df_clean = df_raw.dropna(subset=['CustomerID']).copy()
-df_clean = df_clean[(df_clean['Quantity'] > 0) & (df_clean['UnitPrice'] > 0)].copy()
-df_clean['TotalPrice'] = df_clean['Quantity'] * df_clean['UnitPrice']
+df_clean = df_clean[
+    (df_clean['Quantity'] > 0) & (df_clean['UnitPrice'] > 0)
+].copy()
+df_clean['TotalPrice'] = (
+    df_clean['Quantity'] * df_clean['UnitPrice']
+)
 
-# 3. 產品維度專屬清理：排除非真實商品之服務與費用代碼
-non_product_codes = ['POST', 'D', 'M', 'BANK CHARGES', 'PADS', 'DOT', 'CRUK']
-df_product_clean = df_clean[~df_clean['StockCode'].isin(non_product_codes)].copy()
+# 3. 產品維度專屬清理：排除非真實商品服務代碼
+non_product_codes = [
+    'POST', 'D', 'M', 'BANK CHARGES', 'PADS', 'DOT', 'CRUK'
+]
+df_product_clean = df_clean[
+    ~df_clean['StockCode'].isin(non_product_codes)
+].copy()
 
-print(f"清洗後有效商品交易 Log 筆數: {len(df_product_clean)} 筆")
-print(f"不重複商品種類 (Unique StockCodes): {df_product_clean['StockCode'].nunique()} 種")
+print(f"清洗後有效商品交易 Log 筆數: "
+      f"{len(df_product_clean)} 筆")
+print(f"不重複商品種類: "
+      f"{df_product_clean['StockCode'].nunique()} 種")
 ```
 
 ---
@@ -203,12 +216,19 @@ product_profile = df_product_clean.groupby('StockCode').agg(
     AvgUnitPrice=('UnitPrice', 'mean')
 ).reset_index()
 
-# 計算每種商品之平均單筆購買量 (Average Basket Quantity per Line)
-product_profile['AvgQuantityPerLine'] = (product_profile['TotalQuantity'] / product_profile['InvoiceCount']).round(2)
-product_profile['TotalRevenue'] = product_profile['TotalRevenue'].round(2)
+# 計算每種商品之平均單筆購買量
+product_profile['AvgQuantityPerLine'] = (
+    product_profile['TotalQuantity'] /
+    product_profile['InvoiceCount']
+).round(2)
+product_profile['TotalRevenue'] = (
+    product_profile['TotalRevenue'].round(2)
+)
 
 print("=== 產品維度特徵輪廓表 (Top 5) ===")
-print(product_profile.sort_values(by='TotalRevenue', ascending=False).head())
+print(product_profile.sort_values(
+    by='TotalRevenue', ascending=False
+).head())
 ```
 
 ---
@@ -219,12 +239,18 @@ print(product_profile.sort_values(by='TotalRevenue', ascending=False).head())
 
 ```python
 # 按照營收由高到低排序
-product_profile = product_profile.sort_values(by='TotalRevenue', ascending=False).reset_index(drop=True)
+product_profile = product_profile.sort_values(
+    by='TotalRevenue', ascending=False
+).reset_index(drop=True)
 
 # 計算累積營收與累積營收百分比
 total_site_revenue = product_profile['TotalRevenue'].sum()
-product_profile['CumulativeRevenue'] = product_profile['TotalRevenue'].cumsum()
-product_profile['CumulativeRevenuePct'] = product_profile['CumulativeRevenue'] / total_site_revenue
+product_profile['CumulativeRevenue'] = (
+    product_profile['TotalRevenue'].cumsum()
+)
+product_profile['CumulativeRevenuePct'] = (
+    product_profile['CumulativeRevenue'] / total_site_revenue
+)
 
 # 劃分 ABC 分級
 def assign_abc_category(pct):
@@ -235,15 +261,23 @@ def assign_abc_category(pct):
     else:
         return 'C 類 (長尾尾部品: 95%~100%營收)'
 
-product_profile['ABC_Category'] = product_profile['CumulativeRevenuePct'].apply(assign_abc_category)
+product_profile['ABC_Category'] = (
+    product_profile['CumulativeRevenuePct'].apply(
+        assign_abc_category
+    )
+)
 
 # 統計各類別品項數量與佔比
 abc_summary = product_profile.groupby('ABC_Category').agg(
     ProductCount=('StockCode', 'count'),
     TotalRevenue=('TotalRevenue', 'sum')
 ).reset_index()
-abc_summary['ProductPct'] = (abc_summary['ProductCount'] / len(product_profile) * 100).round(2)
-abc_summary['RevenuePct'] = (abc_summary['TotalRevenue'] / total_site_revenue * 100).round(2)
+abc_summary['ProductPct'] = (
+    abc_summary['ProductCount'] / len(product_profile) * 100
+).round(2)
+abc_summary['RevenuePct'] = (
+    abc_summary['TotalRevenue'] / total_site_revenue * 100
+).round(2)
 
 print("=== 產品 ABC 分級統計表 ===")
 print(abc_summary.to_string(index=False))
@@ -275,20 +309,34 @@ plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
 # 取得銷量 Top 10 與營收 Top 10 商品
-top_quantity = product_profile.sort_values(by='TotalQuantity', ascending=False).head(10)
-top_revenue = product_profile.sort_values(by='TotalRevenue', ascending=False).head(10)
+top_quantity = product_profile.sort_values(
+    by='TotalQuantity', ascending=False
+).head(10)
+top_revenue = product_profile.sort_values(
+    by='TotalRevenue', ascending=False
+).head(10)
 
 fig, axes = plt.subplots(1, 2, figsize=(16, 6))
 
 # 繪製銷量 Top 10 條形圖
-sns.barplot(data=top_quantity, x='TotalQuantity', y='Description', ax=axes[0], palette='Blues_r')
-axes[0].set_title("銷量 Top 10 商品 (Quantity Volume Drivers)", fontsize=14)
-axes[0].set_xlabel("總銷售數量 (件)", fontsize=12)
+sns.barplot(
+    data=top_quantity, x='TotalQuantity', y='Description',
+    ax=axes[0], palette='Blues_r'
+)
+axes[0].set_title(
+    "銷量 Top 10 商品 (Volume Drivers)", fontsize=13
+)
+axes[0].set_xlabel("總銷售數量 (件)", fontsize=11)
 
 # 繪製營收 Top 10 條形圖
-sns.barplot(data=top_revenue, x='TotalRevenue', y='Description', ax=axes[1], palette='Oranges_r')
-axes[1].set_title("銷售額 Top 10 商品 (Revenue Cash Cows)", fontsize=14)
-axes[1].set_xlabel("總銷售金額 (英鎊 GBP)", fontsize=12)
+sns.barplot(
+    data=top_revenue, x='TotalRevenue', y='Description',
+    ax=axes[1], palette='Oranges_r'
+)
+axes[1].set_title(
+    "銷售額 Top 10 商品 (Revenue Cash Cows)", fontsize=13
+)
+axes[1].set_xlabel("總銷售金額 (英鎊 GBP)", fontsize=11)
 
 plt.tight_layout()
 plt.show()
@@ -306,13 +354,19 @@ plt.show()
 
 ```python
 # 轉 InvoiceDate 為 YearMonth
-df_product_clean['YearMonth'] = pd.to_datetime(df_product_clean['InvoiceDate']).dt.to_period('M').astype(str)
+df_product_clean['YearMonth'] = pd.to_datetime(
+    df_product_clean['InvoiceDate']
+).dt.to_period('M').astype(str)
 
 # 按月份與產品代碼聚合銷量
-monthly_product = df_product_clean.groupby(['YearMonth', 'Description'])['Quantity'].sum().reset_index()
+monthly_product = df_product_clean.groupby(
+    ['YearMonth', 'Description']
+)['Quantity'].sum().reset_index()
 
 # 找出每個月銷量第一名的商品
-monthly_champions = monthly_product.groupby('YearMonth').apply(
+monthly_champions = monthly_product.groupby(
+    'YearMonth'
+).apply(
     lambda x: x.nlargest(1, 'Quantity')
 ).reset_index(drop=True)
 
@@ -332,9 +386,26 @@ print(monthly_champions.to_string(index=False))
 
 ```python
 # 比較英國 (UK) 與海外主要國家的產品營收 Top 5
-uk_top = df_product_clean[df_product_clean['Country'] == 'United Kingdom'].groupby('Description')['TotalPrice'].sum().nlargest(5).reset_index()
-france_top = df_product_clean[df_product_clean['Country'] == 'France'].groupby('Description')['TotalPrice'].sum().nlargest(5).reset_index()
-germany_top = df_product_clean[df_product_clean['Country'] == 'Germany'].groupby('Description')['TotalPrice'].sum().nlargest(5).reset_index()
+uk_top = (
+    df_product_clean[
+        df_product_clean['Country'] == 'United Kingdom'
+    ].groupby('Description')['TotalPrice']
+    .sum().nlargest(5).reset_index()
+)
+
+france_top = (
+    df_product_clean[
+        df_product_clean['Country'] == 'France'
+    ].groupby('Description')['TotalPrice']
+    .sum().nlargest(5).reset_index()
+)
+
+germany_top = (
+    df_product_clean[
+        df_product_clean['Country'] == 'Germany'
+    ].groupby('Description')['TotalPrice']
+    .sum().nlargest(5).reset_index()
+)
 
 print("=== 核心國家熱銷商品偏好對比 ===")
 print("【英國市場 Top 5】\n", uk_top.to_string(index=False))
@@ -363,18 +434,27 @@ class GlobalPopularityRecommender:
         :return: 推薦商品 DataFrame
         """
         if metric == 'revenue':
-            recommended = self.profile.sort_values(by='TotalRevenue', ascending=False).head(top_n)
+            recommended = self.profile.sort_values(
+                by='TotalRevenue', ascending=False
+            ).head(top_n)
         elif metric == 'quantity':
-            recommended = self.profile.sort_values(by='TotalQuantity', ascending=False).head(top_n)
+            recommended = self.profile.sort_values(
+                by='TotalQuantity', ascending=False
+            ).head(top_n)
         else:
             raise ValueError("metric 必須為 'revenue' 或 'quantity'")
             
-        return recommended[['StockCode', 'Description', 'TotalQuantity', 'TotalRevenue', 'AvgUnitPrice']]
+        return recommended[[
+            'StockCode', 'Description',
+            'TotalQuantity', 'TotalRevenue', 'AvgUnitPrice'
+        ]]
 
 # 實例化全站推薦器
 recommender = GlobalPopularityRecommender(product_profile)
-print("=== 全局營收熱門推薦榜單 Top 5 (Global Revenue Top 5) ===")
-print(recommender.recommend(top_n=5, metric='revenue').to_string(index=False))
+print("=== 全局營收熱門推薦榜單 Top 5 ===")
+print(recommender.recommend(
+    top_n=5, metric='revenue'
+).to_string(index=False))
 ```
 
 ---
@@ -390,23 +470,34 @@ def recommend_by_country(df_transaction, country_name, top_n=5):
     """
     特定國家分區熱門推薦器
     """
-    country_df = df_transaction[df_transaction['Country'] == country_name]
-    top_products = country_df.groupby(['StockCode', 'Description']).agg(
-        CountryRevenue=('TotalPrice', 'sum'),
-        CountryQuantity=('Quantity', 'sum')
-    ).reset_index().sort_values(by='CountryRevenue', ascending=False).head(top_n)
+    country_df = df_transaction[
+        df_transaction['Country'] == country_name
+    ]
+    top_products = (
+        country_df.groupby(['StockCode', 'Description'])
+        .agg(
+            CountryRevenue=('TotalPrice', 'sum'),
+            CountryQuantity=('Quantity', 'sum')
+        ).reset_index()
+        .sort_values(by='CountryRevenue', ascending=False)
+        .head(top_n)
+    )
     
     top_products['CountryRevenue'] = top_products['CountryRevenue'].round(2)
     return top_products
 
-print("=== 法國地區專屬熱門推薦榜單 Top 5 (France Popularity Top 5) ===")
-print(recommend_by_country(df_product_clean, 'France', top_n=5).to_string(index=False))
+print("=== 法國地區專屬熱門推薦榜單 Top 5 ===")
+print(recommend_by_country(
+    df_product_clean, 'France', top_n=5
+).to_string(index=False))
 ```
 
 #### 2. 特定顧客分群熱門推薦器（Segment Popularity Recommender）：
 
 ```python
-def recommend_by_segment(df_transaction, customer_cluster_df, cluster_id, top_n=5):
+def recommend_by_segment(df_transaction,
+                         customer_cluster_df,
+                         cluster_id, top_n=5):
     """
     特定顧客分群 (Persona Cluster) 熱門推薦器
     結合第十週 K-Means 分群標籤 (Cluster 0: Champions VIP, Cluster 1: Loyalists, etc.)
@@ -417,24 +508,35 @@ def recommend_by_segment(df_transaction, customer_cluster_df, cluster_id, top_n=
     :return: 該客群偏好之熱門商品 DataFrame
     """
     # 1. 將交易 Log 合併顧客分群標籤
-    merged_df = df_transaction.merge(customer_cluster_df[['CustomerID', 'Cluster']], on='CustomerID', how='inner')
+    merged_df = df_transaction.merge(
+        customer_cluster_df[['CustomerID', 'Cluster']],
+        on='CustomerID', how='inner'
+    )
     
     # 2. 篩選指定分群之交易紀錄
     segment_df = merged_df[merged_df['Cluster'] == cluster_id]
     
     # 3. 聚合計算該分群顧客最喜愛的熱門商品 Top N
-    top_products = segment_df.groupby(['StockCode', 'Description']).agg(
+    top_products = segment_df.groupby(
+        ['StockCode', 'Description']
+    ).agg(
         SegmentRevenue=('TotalPrice', 'sum'),
         SegmentQuantity=('Quantity', 'sum'),
         BuyerCount=('CustomerID', 'nunique')
-    ).reset_index().sort_values(by='SegmentRevenue', ascending=False).head(top_n)
+    ).reset_index().sort_values(
+        by='SegmentRevenue', ascending=False
+    ).head(top_n)
     
-    top_products['SegmentRevenue'] = top_products['SegmentRevenue'].round(2)
+    top_products['SegmentRevenue'] = (
+        top_products['SegmentRevenue'].round(2)
+    )
     return top_products
 
-# 範例：推薦 Cluster 0 (Champions 核心頂級 VIP) 最愛的熱門商品
-print("=== 核心頂級 VIP 客群 (Cluster 0 Champions) 專屬熱門推薦榜單 Top 5 ===")
-print(recommend_by_segment(df_product_clean, rfm_clusters, cluster_id=0, top_n=5).to_string(index=False))
+# 範例：推薦 Cluster 0 最愛的熱門商品
+print("=== VIP 客群 (Cluster 0) 專屬推薦榜單 Top 5 ===")
+print(recommend_by_segment(
+    df_product_clean, rfm_clusters, cluster_id=0, top_n=5
+).to_string(index=False))
 ```
 
 ---

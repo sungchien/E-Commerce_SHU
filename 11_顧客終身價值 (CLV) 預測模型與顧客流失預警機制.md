@@ -14,32 +14,35 @@ puppeteer:
 <style>
   /* 全域字型、字級與行距 */
   body {
-    font-size: 13pt !important;
+    font-size: 16pt !important;
     line-height: 1.7 !important;
     font-family: "Microsoft JhengHei", "PingFang TC", "Helvetica Neue", sans-serif;
   }
 
   /* 階層標題微調 */
-  h1 { font-size: 24pt !important; margin-bottom: 0.5em !important; }
-  h2 { font-size: 18pt !important; page-break-before: always; }
-  h3 { font-size: 15pt !important; }
-  h4 { font-size: 13.5pt !important; }
+  h1 { font-size: 28pt !important; margin-bottom: 0.5em !important; }
+  h2 { font-size: 22pt !important; page-break-before: always; }
+  h3 { font-size: 18pt !important; }
+  h4 { font-size: 15pt !important; }
 
   /* 表格文字放大與排版優化 */
   table, th, td {
-    font-size: 12pt !important;
+    font-size: 16pt !important;
     line-height: 1.5 !important;
   }
 
   /* 程式碼區塊 */
   pre, code {
-    font-size: 11.5pt !important;
+    font-size: 16pt !important;
     font-family: Consolas, "Courier New", monospace !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
   }
 
   /* Mermaid 流程圖節點字體放大 */
   .mermaid text {
-    font-size: 14px !important;
+    font-size: 16px !important;
   }
 </style>
 
@@ -154,12 +157,15 @@ flowchart LR
 $$x_{\text{capped}} = \min(x, P_{95})$$
 
 ```python
-# 95 分位數封頂截斷 (95th Percentile Winsorization) 實作範例
+# 95 分位數封頂截斷 (Winsorization) 實作
 p95_threshold = df_clv['target_P4_monetary'].quantile(0.95)
-print(f"預測目標 P4 金額之 95 分位數門檻值: ${p95_threshold:.2f} 英鎊")
+print(f"預測目標 P4 金額 95 分位數: ${p95_threshold:.2f} 英鎊")
 
 # 將超過 P95 的極端金額取代為 P95 門檻值
-df_clv['target_P4_monetary_capped'] = np.clip(df_clv['target_P4_monetary'], a_min=None, a_max=p95_threshold)
+df_clv['target_P4_monetary_capped'] = np.clip(
+    df_clv['target_P4_monetary'],
+    a_min=None, a_max=p95_threshold
+)
 ```
 
 #### 導入 95 分位數截斷帶來的效益：
@@ -187,21 +193,31 @@ df_raw = online_retail.data.original.copy()
 
 # 2. 資料清洗管道 (Data Cleaning Pipeline)
 df_clean = df_raw.dropna(subset=['CustomerID']).copy()
-df_clean = df_clean[(df_clean['Quantity'] > 0) & (df_clean['UnitPrice'] > 0)].copy()
+df_clean = df_clean[
+    (df_clean['Quantity'] > 0) & (df_clean['UnitPrice'] > 0)
+].copy()
 
 # 轉換型態與計算單筆明細金額
 df_clean['CustomerID'] = df_clean['CustomerID'].astype(int)
-df_clean['InvoiceDate'] = pd.to_datetime(df_clean['InvoiceDate'])
-df_clean['TotalPrice'] = df_clean['Quantity'] * df_clean['UnitPrice']
+df_clean['InvoiceDate'] = pd.to_datetime(
+    df_clean['InvoiceDate']
+)
+df_clean['TotalPrice'] = (
+    df_clean['Quantity'] * df_clean['UnitPrice']
+)
 
 # 3. 按訂單 (InvoiceNo) 彙整交易時間與總價
-invoice_df = df_clean.groupby(['InvoiceNo', 'CustomerID']).agg({
+invoice_df = df_clean.groupby(
+    ['InvoiceNo', 'CustomerID']
+).agg({
     'TotalPrice': 'sum',
     'InvoiceDate': 'min'
 }).reset_index()
 
 # 4. 移除不完整月份 (2011 年 12 月僅有 1~9 號資料)
-invoice_df = invoice_df[invoice_df['InvoiceDate'] < '2011-12-01'].copy()
+invoice_df = invoice_df[
+    invoice_df['InvoiceDate'] < '2011-12-01'
+].copy()
 ```
 
 ---
@@ -217,13 +233,18 @@ p2_start, p2_end = '2011-03-01', '2011-05-31'
 p3_start, p3_end = '2011-06-01', '2011-08-31'
 p4_start, p4_end = '2011-09-01', '2011-11-30'
 
-# 2. 篩選歷史區間 (P1, P2, P3) 有過交易紀錄的顧客為訓練主體
-active_customers = invoice_df[invoice_df['InvoiceDate'] <= p3_end]['CustomerID'].unique()
+# 2. 篩選歷史區間 (P1, P2, P3) 有過交易的顧客
+active_customers = invoice_df[
+    invoice_df['InvoiceDate'] <= p3_end
+]['CustomerID'].unique()
 df_clv = pd.DataFrame({'CustomerID': active_customers})
 
 # 3. 撰寫區間特徵提取函數 (內建 95 分位數金額截斷)
 def extract_period_features(df, start_date, end_date, prefix):
-    sub_df = df[(df['InvoiceDate'] >= start_date) & (df['InvoiceDate'] <= end_date)]
+    sub_df = df[
+        (df['InvoiceDate'] >= start_date) &
+        (df['InvoiceDate'] <= end_date)
+    ]
     feat = sub_df.groupby('CustomerID').agg(
         freq=('InvoiceNo', 'nunique'),
         monetary=('TotalPrice', 'sum')
@@ -232,14 +253,27 @@ def extract_period_features(df, start_date, end_date, prefix):
     
     # 對歷史區間金額套用 P95 截斷
     p95_m = feat['monetary'].quantile(0.95)
-    feat[f'{prefix}_monetary'] = np.clip(feat['monetary'], a_min=None, a_max=p95_m)
-    feat[f'{prefix}_aov'] = feat[f'{prefix}_monetary'] / feat[f'{prefix}_freq']
-    return feat[['CustomerID', f'{prefix}_freq', f'{prefix}_monetary', f'{prefix}_aov']]
+    feat[f'{prefix}_monetary'] = np.clip(
+        feat['monetary'], a_min=None, a_max=p95_m
+    )
+    feat[f'{prefix}_aov'] = (
+        feat[f'{prefix}_monetary'] / feat[f'{prefix}_freq']
+    )
+    return feat[[
+        'CustomerID', f'{prefix}_freq',
+        f'{prefix}_monetary', f'{prefix}_aov'
+    ]]
 
-# 提取 P1, P2, P3 特徵並進行主體合併與零值填補 (Zero-Padding)
-f_p1 = extract_period_features(invoice_df, p1_start, p1_end, 'P1')
-f_p2 = extract_period_features(invoice_df, p2_start, p2_end, 'P2')
-f_p3 = extract_period_features(invoice_df, p3_start, p3_end, 'P3')
+# 提取 P1, P2, P3 特徵並進行主體合併與零值填補
+f_p1 = extract_period_features(
+    invoice_df, p1_start, p1_end, 'P1'
+)
+f_p2 = extract_period_features(
+    invoice_df, p2_start, p2_end, 'P2'
+)
+f_p3 = extract_period_features(
+    invoice_df, p3_start, p3_end, 'P3'
+)
 
 df_clv = df_clv.merge(f_p1, on='CustomerID', how='left')
 df_clv = df_clv.merge(f_p2, on='CustomerID', how='left')
@@ -247,19 +281,32 @@ df_clv = df_clv.merge(f_p3, on='CustomerID', how='left')
 df_clv.fillna(0, inplace=True)
 
 # 4. 提取 P4 預測目標金額 (y) 並執行 95 分位數截斷
-p4_target = invoice_df[(invoice_df['InvoiceDate'] >= p4_start) & (invoice_df['InvoiceDate'] <= p4_end)]
-target_df = p4_target.groupby('CustomerID')['TotalPrice'].sum().reset_index()
-target_df.rename(columns={'TotalPrice': 'target_P4_monetary'}, inplace=True)
+p4_target = invoice_df[
+    (invoice_df['InvoiceDate'] >= p4_start) &
+    (invoice_df['InvoiceDate'] <= p4_end)
+]
+target_df = p4_target.groupby(
+    'CustomerID'
+)['TotalPrice'].sum().reset_index()
+target_df.rename(
+    columns={'TotalPrice': 'target_P4_monetary'},
+    inplace=True
+)
 
 df_clv = df_clv.merge(target_df, on='CustomerID', how='left')
 df_clv['target_P4_monetary'].fillna(0, inplace=True)
 
 # 對預測目標 y 進行 95 分位數截斷 (Winsorization)
 p95_y = df_clv['target_P4_monetary'].quantile(0.95)
-df_clv['target_P4_monetary_capped'] = np.clip(df_clv['target_P4_monetary'], a_min=None, a_max=p95_y)
+df_clv['target_P4_monetary_capped'] = np.clip(
+    df_clv['target_P4_monetary'], a_min=None, a_max=p95_y
+)
 
 print(f"P4 目標金額 P95 截斷門檻: ${p95_y:.2f} 英鎊")
-print(df_clv[['CustomerID', 'P3_monetary', 'target_P4_monetary', 'target_P4_monetary_capped']].head().round(2))
+print(df_clv[[
+    'CustomerID', 'P3_monetary',
+    'target_P4_monetary', 'target_P4_monetary_capped'
+]].head().round(2))
 ```
 
 ---
@@ -273,16 +320,23 @@ print(df_clv[['CustomerID', 'P3_monetary', 'target_P4_monetary', 'target_P4_mone
 2. 計算該同群體新客到了 P4 的平均預估 CLV：
 
 ```python
-# 1. 篩選 P1 首購新客 (在 P1 有購買，且在此之前無歷史紀錄)
-p1_new_customers = df_clv[(df_clv['P1_freq'] > 0) & (df_clv['P2_freq'] == 0) & (df_clv['P3_freq'] == 0)]
+# 1. 篩選 P1 首購新客 (在 P1 有購買，之前無紀錄)
+p1_new_customers = df_clv[
+    (df_clv['P1_freq'] > 0) &
+    (df_clv['P2_freq'] == 0) &
+    (df_clv['P3_freq'] == 0)
+]
 
-# 2. 計算該同群體新客未來 P4 的預估平均 CLV 基準 (Cohort Benchmark)
-new_customer_cohort_clv = p1_new_customers['target_P4_monetary_capped'].mean()
-print(f"歷史同群體新客預估平均 3 個月 CLV 基準: ${new_customer_cohort_clv:.2f} 英鎊")
+# 2. 計算同群體新客未來 P4 預估平均 CLV
+new_customer_cohort_clv = p1_new_customers[
+    'target_P4_monetary_capped'
+].mean()
+print(f"同群體新客預估平均 3 個月 CLV: "
+      f"${new_customer_cohort_clv:.2f} 英鎊")
 
-# 3. 假設毛利率為 40%，試算獲取新客之最高 CPA 門檻上限
+# 3. 假設毛利率為 40%，試算獲取新客之最高 CPA 上限
 cpa_ceiling = new_customer_cohort_clv * 0.40
-print(f"未來獲取該同群體新客之最高允許 CPA 上限: ${cpa_ceiling:.2f} 英鎊")
+print(f"獲取同群體新客最高允許 CPA: ${cpa_ceiling:.2f} 英鎊")
 ```
 
 這項指標能讓行銷部門在投放 Facebook/Google 廣告時，精確設定廣告競價上限（Target CPA），確保新客獲取不虧損！
@@ -339,7 +393,8 @@ single_model.fit(X_train, y_train)
 
 # 4. 在測試集上進行盲測預測 (predict) 與評估
 y_test_pred = single_model.predict(X_test)
-y_test_pred = np.clip(y_test_pred, a_min=0, a_max=None) # 修正負數預測值
+# 修正負數預測值
+y_test_pred = np.clip(y_test_pred, a_min=0, a_max=None)
 
 test_mae = median_absolute_error(y_test, y_test_pred)
 test_r2 = r2_score(y_test, y_test_pred)
@@ -394,29 +449,36 @@ flowchart TD
 在 Python 中，我們使用 Scikit-Learn 的 KFold 類別搭配 cross_val_score 與 cross_val_predict 進行 10-Fold 交叉驗證實作：
 
 ```python
-from sklearn.model_selection import KFold, cross_val_score, cross_val_predict
+from sklearn.model_selection import (
+    KFold, cross_val_score, cross_val_predict
+)
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import median_absolute_error, r2_score
+from sklearn.metrics import (
+    median_absolute_error, r2_score
+)
 
-# 1. 初始化 10-Fold 交叉驗證器 (Shuffle=True 確保打亂, random_state=42)
+# 1. 初始化 10-Fold 交叉驗證器
 kf = KFold(n_splits=10, shuffle=True, random_state=42)
 cv_model = LinearRegression()
 
-# 2. 使用 cross_val_score 計算 10 次迭代的個別 R² 分數與平均值
-r2_scores = cross_val_score(cv_model, X, y, cv=kf, scoring='r2')
+# 2. 計算 10 次迭代個別 R² 分數與平均值
+r2_scores = cross_val_score(
+    cv_model, X, y, cv=kf, scoring='r2'
+)
 
 print("=== 10-Fold 交叉驗證 R² 分數結果 ===")
 for fold_idx, score in enumerate(r2_scores, 1):
     print(f"Fold {fold_idx:2d} R² 分數: {score:.4f}")
 
 print("-" * 40)
-print(f"10-Fold 平均 R² 分數: {r2_scores.mean():.4f} (± {r2_scores.std():.4f})")
+print(f"10-Fold 平均 R² 分數: "
+      f"{r2_scores.mean():.4f} (± {r2_scores.std():.4f})")
 
-# 3. 使用 cross_val_predict 獲得全體顧客的折外預測值 (Out-of-Fold Predictions, OOF)
+# 3. cross_val_predict 獲得折外預測值 (OOF)
 y_oof_pred = cross_val_predict(cv_model, X, y, cv=kf)
-y_oof_pred = np.clip(y_oof_pred, a_min=0, a_max=None) # 修正負數預測值
+y_oof_pred = np.clip(y_oof_pred, a_min=0, a_max=None)
 
-# 4. 計算全局 10-Fold OOF 中值絕對差 (MAE) 與總體 R²
+# 4. 計算 10-Fold OOF 中值絕對差 (MAE) 與總體 R²
 oof_mae = median_absolute_error(y, y_oof_pred)
 oof_r2 = r2_score(y, y_oof_pred)
 
@@ -424,12 +486,18 @@ print("\n=== 10-Fold 總體 Out-of-Fold 穩健評估成效 ===")
 print(f"10-Fold 全局中值絕對差 (MAE): ${oof_mae:.2f} 英鎊")
 print(f"10-Fold 全局 R² 決定係數: {oof_r2:.4f}")
 
-# 5. 繪製 10-Fold OOF 預測值 vs. 真實值 散佈圖 (Scatter Plot Diagnostic)
+# 5. 繪製 10-Fold OOF 散佈診斷圖
 plt.figure(figsize=(8, 6))
 sns.scatterplot(x=y, y=y_oof_pred, alpha=0.5, color='indigo')
 max_val = max(y.max(), y_oof_pred.max())
-plt.plot([0, max_val], [0, max_val], 'r--', linewidth=2, label='45度 理想預測線 (y=x)')
-plt.title("10-Fold CV 折外預測診斷圖 (套用 P95 截斷後)", fontsize=13)
+plt.plot(
+    [0, max_val], [0, max_val], 'r--',
+    linewidth=2, label='45度 理想預測線 (y=x)'
+)
+plt.title(
+    "10-Fold CV 折外預測診斷圖 (套用 P95 截斷後)",
+    fontsize=13
+)
 plt.xlabel("未來 P4 真實金額 (P95 Capped, 英鎊)", fontsize=11)
 plt.ylabel("10-Fold 折外預測金額 (英鎊)", fontsize=11)
 plt.legend()

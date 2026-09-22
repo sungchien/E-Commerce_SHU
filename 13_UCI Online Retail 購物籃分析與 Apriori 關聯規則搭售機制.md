@@ -14,32 +14,35 @@ puppeteer:
 <style>
   /* 全域字型、字級與行距 */
   body {
-    font-size: 13pt !important;
+    font-size: 16pt !important;
     line-height: 1.7 !important;
     font-family: "Microsoft JhengHei", "PingFang TC", "Helvetica Neue", sans-serif;
   }
 
   /* 階層標題微調 */
-  h1 { font-size: 24pt !important; margin-bottom: 0.5em !important; }
-  h2 { font-size: 18pt !important; page-break-before: always; }
-  h3 { font-size: 15pt !important; }
-  h4 { font-size: 13.5pt !important; }
+  h1 { font-size: 28pt !important; margin-bottom: 0.5em !important; }
+  h2 { font-size: 22pt !important; page-break-before: always; }
+  h3 { font-size: 18pt !important; }
+  h4 { font-size: 15pt !important; }
 
   /* 表格文字放大與排版優化 */
   table, th, td {
-    font-size: 12pt !important;
+    font-size: 16pt !important;
     line-height: 1.5 !important;
   }
 
   /* 程式碼區塊 */
   pre, code {
-    font-size: 11.5pt !important;
+    font-size: 16pt !important;
     font-family: Consolas, "Courier New", monospace !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
   }
 
   /* Mermaid 流程圖節點字體放大 */
   .mermaid text {
-    font-size: 14px !important;
+    font-size: 16px !important;
   }
 </style>
 
@@ -393,33 +396,52 @@ flowchart TD
 import pandas as pd
 import numpy as np
 from ucimlrepo import fetch_ucirepo
-from mlxtend.frequent_patterns import apriori, fpgrowth, association_rules
+from mlxtend.frequent_patterns import (
+    apriori, fpgrowth, association_rules
+)
 
 # 1. 載入 UCI Online Retail 資料集 (id=352)
 online_retail = fetch_ucirepo(id=352)
 df_raw = online_retail.data.original.copy()
 
-# 2. 資料清洗：剔除退貨、缺失 CustomerID 與非真實商品代碼
+# 2. 資料清洗：
+# 剔除退貨、缺失 CustomerID 與非商品代碼
 df_clean = df_raw.dropna(subset=['CustomerID']).copy()
-df_clean = df_clean[(df_clean['Quantity'] > 0) & (df_clean['UnitPrice'] > 0)].copy()
-non_product_codes = ['POST', 'D', 'M', 'BANK CHARGES', 'PADS', 'DOT', 'CRUK']
-df_clean = df_clean[~df_clean['StockCode'].isin(non_product_codes)].copy()
+df_clean = df_clean[
+    (df_clean['Quantity'] > 0) &
+    (df_clean['UnitPrice'] > 0)
+].copy()
+non_product_codes = [
+    'POST', 'D', 'M', 'BANK CHARGES',
+    'PADS', 'DOT', 'CRUK'
+]
+df_clean = df_clean[
+    ~df_clean['StockCode'].isin(non_product_codes)
+].copy()
 
-# 為了提升示範計算效能，我們選擇成交筆數最多的核心市場：英國 (United Kingdom)
-df_uk = df_clean[df_clean['Country'] == 'United Kingdom'].copy()
+# 為降低示範計算負荷，選取核心市場：
+# 英國 (United Kingdom)
+df_uk = df_clean[
+    df_clean['Country'] == 'United Kingdom'
+].copy()
 
 # 3. 建立二元 One-Hot 購物籃矩陣 (Invoice-Item Matrix)
-basket = (df_uk.groupby(['InvoiceNo', 'Description'])['Quantity']
-          .sum().unstack().reset_index().fillna(0)
-          .set_index('InvoiceNo'))
+basket = (
+    df_uk.groupby(['InvoiceNo', 'Description'])
+    ['Quantity'].sum().unstack()
+    .reset_index().fillna(0)
+    .set_index('InvoiceNo')
+)
 
-# 4. 將購買數量轉為 0 與 1 之二元編碼 (0: 未購買, 1: 有購買)
+# 4. 將購買數量轉為 0 與 1 編碼
+# (0: 未購買, 1: 有購買)
 def encode_units(x):
     return 1 if x > 0 else 0
 
 basket_sets = basket.applymap(encode_units)
 
-print(f"英國市場購物籃矩陣維度: {basket_sets.shape[0]} 筆訂單 x {basket_sets.shape[1]} 種商品")
+print(f"購物籃矩陣: {basket_sets.shape[0]} 筆訂單 x "
+      f"{basket_sets.shape[1]} 種商品")
 ```
 
 ---
@@ -429,14 +451,22 @@ print(f"英國市場購物籃矩陣維度: {basket_sets.shape[0]} 筆訂單 x {b
 我們設定最小支持度門檻 `min_support = 0.02`（代表商品組合必須至少出現在 2% 的訂單中）：
 
 ```python
-# 運用 FP-Growth 演算法快速挖掘頻繁項集 (Frequent Itemsets)
-frequent_itemsets = fpgrowth(basket_sets, min_support=0.02, use_colnames=True)
+# 運用 FP-Growth 演算法快速探勘頻繁項集
+frequent_itemsets = fpgrowth(
+    basket_sets, min_support=0.02, use_colnames=True
+)
 
 # 依支持度排序
-frequent_itemsets = frequent_itemsets.sort_values(by='support', ascending=False).reset_index(drop=True)
+frequent_itemsets = (
+    frequent_itemsets
+    .sort_values(by='support', ascending=False)
+    .reset_index(drop=True)
+)
 
-print("=== 最熱門頻繁項集 Top 10 (Frequent Itemsets Top 10) ===")
-print(frequent_itemsets.head(10).to_string(index=False))
+print("=== 最熱門頻繁項集 Top 10 ===")
+print(frequent_itemsets.head(10).to_string(
+    index=False
+))
 ```
 
 #### MLxtend `fpgrowth()` 內部演化機制說明：
@@ -455,19 +485,33 @@ print(frequent_itemsets.head(10).to_string(index=False))
 
 ```python
 # 從頻繁項集中生成關聯規則
-rules = association_rules(frequent_itemsets, metric="lift", min_threshold=1.2)
+rules = association_rules(
+    frequent_itemsets, metric="lift", min_threshold=1.2
+)
 
 # 格式化輸出欄位：將 frozenset 轉為易讀字串
-rules['antecedents_str'] = rules['antecedents'].apply(lambda x: ', '.join(list(x)))
-rules['consequents_str'] = rules['consequents'].apply(lambda x: ', '.join(list(x)))
+rules['antecedents_str'] = rules['antecedents'].apply(
+    lambda x: ', '.join(list(x))
+)
+rules['consequents_str'] = rules['consequents'].apply(
+    lambda x: ', '.join(list(x))
+)
 
 # 依提升度 (Lift) 由高到低排序
-rules_sorted = rules.sort_values(by='lift', ascending=False).reset_index(drop=True)
+rules_sorted = (
+    rules.sort_values(by='lift', ascending=False)
+    .reset_index(drop=True)
+)
 
 # 顯示前 5 條最強搭售規則
-display_cols = ['antecedents_str', 'consequents_str', 'support', 'confidence', 'lift']
-print("=== 高提升度黃金搭售規則 Top 5 (High Lift Rules Top 5) ===")
-print(rules_sorted[display_cols].head(5).to_string(index=False))
+display_cols = [
+    'antecedents_str', 'consequents_str',
+    'support', 'confidence', 'lift'
+]
+print("=== 高提升度搭售規則 Top 5 ===")
+print(rules_sorted[display_cols].head(5).to_string(
+    index=False
+))
 ```
 
 #### Online Retail 關聯規則實測黃金搭售結果表：
@@ -492,31 +536,52 @@ print(rules_sorted[display_cols].head(5).to_string(index=False))
 我們編寫一個模組化推薦函數 `get_frequently_bought_together`，當顧客將商品加入購物車或進入結帳頁時，系統自動查詢該商品高 Lift 提升度後項商品：
 
 ```python
-def get_frequently_bought_together(cart_item_description, association_rules_df, top_n=3):
+def get_frequently_bought_together(
+    cart_item_description,
+    association_rules_df,
+    top_n=3
+):
     """
     結帳頁面「經常一起購買」動態推薦器
-    :param cart_item_description: 目前購物車內之商品名稱 (字串)
-    :param association_rules_df: 已訓練好的關聯規則 DataFrame
+    :param cart_item_description: 目前商品名稱
+    :param association_rules_df: 關聯規則表
     :param top_n: 推薦關聯商品數量
     :return: 推薦商品與關聯指標 DataFrame
     """
     # 篩選前項包含購物車商品的規則
     matching_rules = association_rules_df[
-        association_rules_df['antecedents_str'].str.contains(cart_item_description, regex=False, case=False)
+        association_rules_df['antecedents_str']
+        .str.contains(
+            cart_item_description,
+            regex=False, case=False
+        )
     ].copy()
     
     if matching_rules.empty:
-        return f"目前商品 '{cart_item_description}' 尚無顯著關聯推薦，建議採用第十二週全局熱門商品進行保底推薦。"
+        return (
+            f"商品 '{cart_item_description}' "
+            f"尚無推薦，"
+                f"建議採第十二章商品熱門排行推薦。")
     
     # 依 Lift 提升度排序並取出 Top N
-    top_recommendations = matching_rules.sort_values(by='lift', ascending=False).head(top_n)
+    top_recommendations = (
+        matching_rules
+        .sort_values(by='lift', ascending=False)
+        .head(top_n)
+    )
     
-    return top_recommendations[['antecedents_str', 'consequents_str', 'confidence', 'lift']]
+    return top_recommendations[[
+        'antecedents_str', 'consequents_str',
+        'confidence', 'lift'
+    ]]
 
-# 實測範例：當顧客將「GREEN REGENCY TEACUP AND SAUCER」放進購物車時
+# 實測範例：顧客將商品放進購物車時
 cart_item = "GREEN REGENCY TEACUP AND SAUCER"
-print(f"=== 購物車商品 '{cart_item}' 之「經常一起購買」動態推薦結果 ===")
-print(get_frequently_bought_together(cart_item, rules_sorted, top_n=3).to_string(index=False))
+print(f"=== 商品 '{cart_item}' 經常一起購買推薦 ===")
+rec_df = get_frequently_bought_together(
+    cart_item, rules_sorted, top_n=3
+)
+print(rec_df.to_string(index=False))
 ```
 
 ---

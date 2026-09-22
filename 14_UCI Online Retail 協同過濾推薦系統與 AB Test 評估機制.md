@@ -14,32 +14,35 @@ puppeteer:
 <style>
   /* 全域字型、字級與行距 */
   body {
-    font-size: 13pt !important;
+    font-size: 16pt !important;
     line-height: 1.7 !important;
     font-family: "Microsoft JhengHei", "PingFang TC", "Helvetica Neue", sans-serif;
   }
 
   /* 階層標題微調 */
-  h1 { font-size: 24pt !important; margin-bottom: 0.5em !important; }
-  h2 { font-size: 18pt !important; page-break-before: always; }
-  h3 { font-size: 15pt !important; }
-  h4 { font-size: 13.5pt !important; }
+  h1 { font-size: 28pt !important; margin-bottom: 0.5em !important; }
+  h2 { font-size: 22pt !important; page-break-before: always; }
+  h3 { font-size: 18pt !important; }
+  h4 { font-size: 15pt !important; }
 
   /* 表格文字放大與排版優化 */
   table, th, td {
-    font-size: 12pt !important;
+    font-size: 16pt !important;
     line-height: 1.5 !important;
   }
 
   /* 程式碼區塊 */
   pre, code {
-    font-size: 11.5pt !important;
+    font-size: 16pt !important;
     font-family: Consolas, "Courier New", monospace !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
   }
 
   /* Mermaid 流程圖節點字體放大 */
   .mermaid text {
-    font-size: 14px !important;
+    font-size: 16px !important;
   }
 </style>
 
@@ -232,19 +235,37 @@ df_raw = online_retail.data.original.copy()
 
 # 2. 資料清理：移除退貨與缺失 CustomerID
 df_clean = df_raw.dropna(subset=['CustomerID']).copy()
-df_clean = df_clean[(df_clean['Quantity'] > 0) & (df_clean['UnitPrice'] > 0)].copy()
+df_clean = df_clean[
+    (df_clean['Quantity'] > 0) &
+    (df_clean['UnitPrice'] > 0)
+].copy()
 
-# 3. 特徵降維：篩選銷量 Top 1000 明星商品與 Top 200 活躍顧客
-top_1000_products = df_clean.groupby('Description')['Quantity'].sum().nlargest(1000).index
-df_top_p = df_clean[df_clean['Description'].isin(top_1000_products)].copy()
+# 3. 特徵降維：
+# 篩選銷量 Top 1000 商品與 Top 200 顧客
+top_1000 = (
+    df_clean.groupby('Description')['Quantity']
+    .sum().nlargest(1000).index
+)
+df_top_p = df_clean[
+    df_clean['Description'].isin(top_1000)
+].copy()
 
-top_200_customers = df_top_p.groupby('CustomerID')['InvoiceNo'].nunique().nlargest(200).index
-df_reduced = df_top_p[df_top_p['CustomerID'].isin(top_200_customers)].copy()
+top_200 = (
+    df_top_p.groupby('CustomerID')['InvoiceNo']
+    .nunique().nlargest(200).index
+)
+df_reduced = df_top_p[
+    df_top_p['CustomerID'].isin(top_200)
+].copy()
 
-# 4. 建立 User-Item 矩陣 (行: CustomerID, 列: Description)
-user_item_matrix = df_reduced.groupby(['CustomerID', 'Description'])['Quantity'].sum().unstack().fillna(0)
+# 4. 建立 User-Item 矩陣
+user_item_matrix = (
+    df_reduced.groupby(['CustomerID', 'Description'])
+    ['Quantity'].sum().unstack().fillna(0)
+)
 
-print(f"縮減後 User-Item 矩陣維度: {user_item_matrix.shape[0]} 位顧客 x {user_item_matrix.shape[1]} 種商品")
+print(f"矩陣維度：{user_item_matrix.shape[0]} 顧客 x "
+      f"{user_item_matrix.shape[1]} 商品")
 ```
 
 ---
@@ -254,14 +275,18 @@ print(f"縮減後 User-Item 矩陣維度: {user_item_matrix.shape[0]} 位顧客 
 我們計算顧客相似度矩陣，並編寫 `recommend_user_based` 函數：
 
 ```python
-# 1. 計算使用者之間的餘弦相似度矩陣 (User Similarity Matrix)
+# 1. 計算使用者餘弦相似度矩陣
 user_sim_matrix = pd.DataFrame(
     cosine_similarity(user_item_matrix),
     index=user_item_matrix.index,
     columns=user_item_matrix.index
 )
 
-def recommend_user_based(target_customer_id, user_item_df, user_sim_df, top_k_neighbors=5, top_n_recommend=3):
+def recommend_user_based(target_customer_id,
+                         user_item_df,
+                         user_sim_df,
+                         top_k_neighbors=5,
+                         top_n_recommend=3):
     """
     User-Based 協同過濾推薦器
     """
@@ -269,27 +294,50 @@ def recommend_user_based(target_customer_id, user_item_df, user_sim_df, top_k_ne
         return "目標顧客不存在於矩陣中"
         
     # 取出與目標顧客最相似的前 K 位鄰居 (扣除自己)
-    similar_users = user_sim_df[target_customer_id].sort_values(ascending=False).iloc[1:top_k_neighbors+1]
+    sim_series = user_sim_df[target_customer_id]
+    similar_users = (
+        sim_series.sort_values(ascending=False)
+        .iloc[1:top_k_neighbors + 1]
+    )
     
     # 目標顧客已買過的商品列表
-    target_bought = set(user_item_df.loc[target_customer_id][user_item_df.loc[target_customer_id] > 0].index)
+    u_row = user_item_df.loc[target_customer_id]
+    target_bought = set(u_row[u_row > 0].index)
     
     # 彙總鄰居們買過、但目標顧客沒買過的商品
     recommendations = {}
     for sim_user, sim_score in similar_users.items():
-        sim_user_bought = user_item_df.loc[sim_user][user_item_df.loc[sim_user] > 0]
-        for item, qty in sim_user_bought.items():
+        sim_bought = (
+            user_item_df.loc[sim_user]
+            [user_item_df.loc[sim_user] > 0]
+        )
+        for item, qty in sim_bought.items():
             if item not in target_bought:
-                recommendations[item] = recommendations.get(item, 0) + (qty * sim_score)
+                curr = recommendations.get(item, 0)
+                recommendations[item] = (
+                    curr + (qty * sim_score)
+                )
                 
     # 排序並取出 Top N 推薦商品
-    rec_series = pd.Series(recommendations).sort_values(ascending=False).head(top_n_recommend)
-    return pd.DataFrame({'RecommendedProduct': rec_series.index, 'PredictedScore': rec_series.values.round(2)})
+    rec_series = (
+        pd.Series(recommendations)
+        .sort_values(ascending=False)
+        .head(top_n_recommend)
+    )
+    return pd.DataFrame({
+        'RecommendedProduct': rec_series.index,
+        'PredictedScore': rec_series.values.round(2)
+    })
 
 # 測試實作：為前 1 位活躍顧客進行推薦
 sample_customer = user_item_matrix.index[0]
-print(f"=== 為顧客 ID: {sample_customer} 進行 User-Based 個體化推薦 ===")
-print(recommend_user_based(sample_customer, user_item_matrix, user_sim_matrix, top_k_neighbors=5, top_n_recommend=3).to_string(index=False))
+print(f"=== 為顧客 ID: {sample_customer} 進行推薦 ===")
+res_df = recommend_user_based(
+    sample_customer, user_item_matrix,
+    user_sim_matrix,
+    top_k_neighbors=5, top_n_recommend=3
+)
+print(res_df.to_string(index=False))
 ```
 
 ---
@@ -299,32 +347,43 @@ print(recommend_user_based(sample_customer, user_item_matrix, user_sim_matrix, t
 對矩陣進行轉置，計算商品相似度矩陣，實作 Amazon 金牌 Item-Based 推薦器：
 
 ```python
-# 1. 將矩陣轉置 (Item x User)，計算商品與商品之間的餘弦相似度矩陣
+# 1. 將矩陣轉置，計算商品餘弦相似度矩陣
 item_sim_matrix = pd.DataFrame(
     cosine_similarity(user_item_matrix.T),
     index=user_item_matrix.columns,
     columns=user_item_matrix.columns
 )
 
-def recommend_item_based(target_item_name, item_sim_df, top_n=3):
+def recommend_item_based(target_item_name,
+                         item_sim_df,
+                         top_n=3):
     """
-    Item-Based 協同過濾推薦器 (「愛屋及烏」與該商品最相似的商品)
+    Item-Based 協同過濾推薦器
     """
     if target_item_name not in item_sim_df.index:
         return "目標商品不存在於矩陣中"
         
     # 取出與目標商品最相似的前 N 個商品 (扣除自己)
-    similar_items = item_sim_df[target_item_name].sort_values(ascending=False).iloc[1:top_n+1]
+    sim_series = item_sim_df[target_item_name]
+    similar_items = (
+        sim_series.sort_values(ascending=False)
+        .iloc[1:top_n + 1]
+    )
     
     return pd.DataFrame({
         'SimilarProduct': similar_items.index,
-        'CosineSimilarity': similar_items.values.round(4)
+        'CosineSimilarity': (
+            similar_items.values.round(4)
+        )
     })
 
-# 測試實作：尋找熱銷商品 "WHITE HANGING HEART T-LIGHT HOLDER" 的最相似拍檔
+# 測試實作：尋找熱銷商品的最相似拍檔
 sample_item = "WHITE HANGING HEART T-LIGHT HOLDER"
-print(f"=== 與商品 '{sample_item}' 最相似之 Item-Based 推薦清單 ===")
-print(recommend_item_based(sample_item, item_sim_matrix, top_n=3).to_string(index=False))
+print(f"=== 與 '{sample_item}' 最相似之推薦 ===")
+rec_df = recommend_item_based(
+    sample_item, item_sim_matrix, top_n=3
+)
+print(rec_df.to_string(index=False))
 ```
 
 ---

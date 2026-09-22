@@ -14,32 +14,35 @@ puppeteer:
 <style>
   /* 全域字型、字級與行距 */
   body {
-    font-size: 13pt !important;
+    font-size: 16pt !important;
     line-height: 1.7 !important;
     font-family: "Microsoft JhengHei", "PingFang TC", "Helvetica Neue", sans-serif;
   }
 
   /* 階層標題微調 */
-  h1 { font-size: 24pt !important; margin-bottom: 0.5em !important; }
-  h2 { font-size: 18pt !important; page-break-before: always; }
-  h3 { font-size: 15pt !important; }
-  h4 { font-size: 13.5pt !important; }
+  h1 { font-size: 28pt !important; margin-bottom: 0.5em !important; }
+  h2 { font-size: 22pt !important; page-break-before: always; }
+  h3 { font-size: 18pt !important; }
+  h4 { font-size: 15pt !important; }
 
   /* 表格文字放大與排版優化 */
   table, th, td {
-    font-size: 12pt !important;
+    font-size: 16pt !important;
     line-height: 1.5 !important;
   }
 
   /* 程式碼區塊 */
   pre, code {
-    font-size: 11.5pt !important;
+    font-size: 16pt !important;
     font-family: Consolas, "Courier New", monospace !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
   }
 
   /* Mermaid 流程圖節點字體放大 */
   .mermaid text {
-    font-size: 14px !important;
+    font-size: 16px !important;
   }
 </style>
 
@@ -167,13 +170,17 @@ df['conversion'] = (y['y'] == 'yes').astype(int)
 # 2. 對二元類別變數進行 0/1 標籤轉換
 df['housing_code'] = (df['housing'] == 'yes').astype(int)
 df['loan_code'] = (df['loan'] == 'yes').astype(int)
-# 3. 處理多類別欄位 contact：使用 pd.get_dummies() 進行 One-Hot Encoding (獨熱編碼)
-contact_dummies = pd.get_dummies(df['contact'], prefix='contact', dtype=int)
-# 4. 避免虛擬變數陷阱 (Dummy Variable Trap)：
-# 剔除未知的對照基準組 (Reference Group)，保留 contact_cellular 與 contact_telephone 納入模型
+# 3. 處理多類別欄位 contact：One-Hot 編碼
+contact_dummies = pd.get_dummies(
+    df['contact'], prefix='contact', dtype=int
+)
+# 4. 避免虛擬變數陷阱：保留 cellular 與 telephone
 df['contact_cellular'] = contact_dummies['contact_cellular']
 df['contact_telephone'] = contact_dummies['contact_telephone']
-print(df[['housing', 'housing_code', 'contact', 'contact_cellular', 'contact_telephone']].head())
+print(df[[
+    'housing', 'housing_code', 'contact',
+    'contact_cellular', 'contact_telephone'
+]].head())
 ```
 
 ---
@@ -229,23 +236,22 @@ print(logit_model.summary())
 
 ```text
                            Logit Regression Results
-==============================================================================
-Dep. Variable:             conversion   No. Observations:                45211
-Model:                          Logit   Df Residuals:                    45202
-Method:                           MLE   Pseudo R-squ.:                  0.2398
-=====================================================================================
-                        coef    std err          z      P>|z|      [0.025      0.975]
--------------------------------------------------------------------------------------
-const                -3.6662      0.091    -40.455      0.000      -3.844      -3.489
-age                  -0.0009      0.001     -0.636      0.525      -0.004       0.002
-balance            2.293e-05   4.41e-06      5.204      0.000    1.43e-05    3.16e-05
-duration              0.0039   6.01e-05     64.544      0.000       0.004       0.004
-campaign             -0.1563      0.010    -15.735      0.000      -0.176      -0.137
-housing_code         -0.9076      0.036    -25.391      0.000      -0.978      -0.837
-loan_code            -0.7699      0.056    -13.673      0.000      -0.880      -0.660
-contact_cellular      1.5163      0.055     27.637      0.000       1.409       1.624
-contact_telephone     1.4409      0.083     17.445      0.000       1.279       1.603
-=====================================================================================
+========================================================
+Dep. Variable:         conversion   No. Obs:       45211
+Model:                      Logit   Pseudo R-squ: 0.2398
+========================================================
+                     coef    std err          z    P>|z|
+--------------------------------------------------------
+const             -3.6662      0.091    -40.455    0.000
+age               -0.0009      0.001     -0.636    0.525
+balance          2.29e-05   4.41e-06      5.204    0.000
+duration           0.0039   6.01e-05     64.544    0.000
+campaign          -0.1563      0.010    -15.735    0.000
+housing_code      -0.9076      0.036    -25.391    0.000
+loan_code         -0.7699      0.056    -13.673    0.000
+contact_cellular   1.5163      0.055     27.637    0.000
+contact_telephone  1.4409      0.083     17.445    0.000
+========================================================
 ```
 
 #### 解讀兩大核心欄位：
@@ -278,7 +284,9 @@ summary_table = pd.DataFrame({
     'p 值 (p-value)': logit_model.pvalues
 })
 # 標記統計上是否顯著 (p < 0.05)
-summary_table['顯著性 (p < 0.05)'] = summary_table['p 值 (p-value)'].apply(lambda x: '顯著 ***' if x < 0.05 else '不顯著')
+summary_table['顯著性 (p < 0.05)'] = summary_table[
+    'p 值 (p-value)'
+].apply(lambda x: '顯著 ***' if x < 0.05 else '不顯著')
 print(summary_table.round(4))
 ```
 
@@ -307,16 +315,26 @@ print(summary_table.round(4))
 ```python
 # 1. 依據第五章劃分標準進行 pd.cut() 特徵切割
 df['age_group'] = pd.cut(
-    df['age'], bins=[0, 30, 40, 50, 60, 100], labels=['<30', '30-39', '40-49', '50-59', '60+'], right=False)
+    df['age'],
+    bins=[0, 30, 40, 50, 60, 100],
+    labels=['<30', '30-39', '40-49', '50-59', '60+'],
+    right=False
+)
 # 2. 使用 pd.get_dummies() 進行 One-Hot 編碼
-age_dummies = pd.get_dummies(df['age_group'], prefix='age', dtype=int)
-# 3. 選定 'age_30-39' 為對照基準組 (Reference Group)，納入其餘 4 個年齡虛擬變數
-age_feature_cols = ['age_<30', 'age_40-49', 'age_50-59', 'age_60+']
+age_dummies = pd.get_dummies(
+    df['age_group'], prefix='age', dtype=int
+)
+# 3. 選定 'age_30-39' 為對照基準組 (Reference Group)
+age_feature_cols = [
+    'age_<30', 'age_40-49', 'age_50-59', 'age_60+'
+]
 for col in age_feature_cols:
     df[col] = age_dummies[col]
-# 4. 建構包含年齡分層虛擬變數的 Logit 模型 (Model 2)
+# 4. 建構包含年齡分層虛擬變數的模型 (Model 2)
 X_cols_m2 = age_feature_cols + [
-    'balance', 'duration', 'campaign', 'housing_code', 'loan_code', 'contact_cellular', 'contact_telephone'
+    'balance', 'duration', 'campaign',
+    'housing_code', 'loan_code',
+    'contact_cellular', 'contact_telephone'
 ]
 X_model_m2 = sm.add_constant(df[X_cols_m2])
 logit_model_m2 = sm.Logit(y_model, X_model_m2).fit()
@@ -402,17 +420,26 @@ flowchart TD
 
 ```python
 from sklearn.linear_model import LogisticRegression
-# 1. 使用特徵工程後最佳的 Model 2 特徵群 (X_cols_m2) 建構並訓練 Scikit-Learn 模型
-# X_cols_m2 包含年齡分層虛擬變數 (age_<30, age_40-49, age_50-59, age_60+) 與其餘行銷特徵
+# 1. 使用最佳 Model 2 特徵群 (X_cols_m2) 訓練模型
 sk_model = LogisticRegression(max_iter=1000)
 sk_model.fit(df[X_cols_m2], df['conversion'])
-# 2. 預測新進顧客的成功訂閱機率 (predict_proba)
-# 回傳陣列 [未訂閱機率 P(y=0), 成功訂閱機率 P(y=1)]
-df['predicted_prob'] = sk_model.predict_proba(df[X_cols_m2])[:, 1]
+# 2. 預測新進顧客成功訂閱機率 (predict_proba)
+df['predicted_prob'] = sk_model.predict_proba(
+    df[X_cols_m2]
+)[:, 1]
 # 3. 篩選出預測成功機率 > 50% 的黃金優先名單
-high_priority_customers = df[df['predicted_prob'] > 0.50]
-print(f"全局 45,211 名顧客中，經 Model 2 邏輯斯迴歸標記為高機率的名單共有: {len(high_priority_customers)} 人")
-print(high_priority_customers[['age', 'age_group', 'job', 'duration', 'housing', 'predicted_prob']].head())
+high_priority_customers = df[
+    df['predicted_prob'] > 0.50
+]
+print(
+    f"全局 45,211 名顧客中，"
+    f"經 Model 2 標記為高機率的名單共: "
+    f"{len(high_priority_customers)} 人"
+)
+print(high_priority_customers[[
+    'age', 'age_group', 'job',
+    'duration', 'housing', 'predicted_prob'
+]].head())
 ```
 
 ---
