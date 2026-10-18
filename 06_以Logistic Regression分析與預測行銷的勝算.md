@@ -39,11 +39,6 @@ puppeteer:
     word-break: break-word !important;
     overflow-wrap: break-word !important;
   }
-
-  /* Mermaid 流程圖節點字體放大 */
-  .mermaid text {
-    font-size: 16px !important;
-  }
 </style>
 
 ---
@@ -64,25 +59,6 @@ puppeteer:
 
 > 「下鑽分析能觀察單維現象，邏輯斯迴歸能控制多維干擾；透過勝算比與顯著性，把海量特徵轉化為精準的行銷決策指南。」
 
-```mermaid
-flowchart TD
-    subgraph Step1["第一階段：邏輯斯迴歸理論與 Sigmoid 函數"]
-        A["線性迴歸的極限<br/>(無法預測 0/1 機率點)"] --> B["Sigmoid 激活函數<br/>P = 1 / (1 + e^-z)"]
-        B --> C["對數勝算 (Log-Odds)<br/>ln(P / (1-P)) = β0 + β1X1 + ..."]
-    end
-    subgraph Step2["第二階段：資料前處理與特徵編碼"]
-        C --> D["標籤轉換 (y → 1/0)<br/>類別特徵 One-Hot / Dummy 編碼"]
-    end
-    subgraph Step3["第三階段：模型建構與報表解讀"]
-        D --> E["statsmodels.Logit 建模與報表產出"]
-        E --> F["p-value (p < 0.05 篩選顯著因子)"]
-        E --> G["Odds Ratio (e^coef 計算倍數影響)"]
-    end
-    subgraph Step4["第四階段：商業洞察與預測落地"]
-        F & G ==> H["精準行銷名單篩選與<br/>受眾特徵過濾建議"]
-    end
-```
-
 ---
 
 ## 第一節：從線性迴歸到邏輯斯迴歸（Logistic Regression）
@@ -101,18 +77,17 @@ $$Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \dots + \beta_k X_k$$
 
 ---
 
-### 1.2 Sigmoid 激活函數與機率轉換 為了解決上述問題，邏輯斯迴歸（Logistic Regression） 引入了著名的Sigmoid 激活函數（Sigmoid Function） ，將線性迴歸的輸出映射至 $(0, 1)$ 之間的標準機率區間：$$\sigma(z) = \frac{1}{1 + e^{-z}}$$其中 $z = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \dots + \beta_k X_k$。
+### 1.2 Sigmoid 激活函數與機率轉換
 
-```mermaid
-flowchart LR
- X["特徵變數 X1, X2..."] --> Linear["線性組合 z = β0 + β1X1 + ..."] Linear --> Sigmoid["Sigmoid 函數 P = 1 / (1 + e^-z)"] Sigmoid --> Prob["輸出標準機率 P ∈ (0, 1)"]
-```
+為了解決上述問題，邏輯斯迴歸（Logistic Regression） 引入了著名的Sigmoid 激活函數（Sigmoid Function） ，將線性迴歸的輸出映射至 $(0, 1)$ 之間的標準機率區間：$$\sigma(z) = \frac{1}{1 + e^{-z}}$$其中 $z = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + \dots + \beta_k X_k$。
 
-如上所示，無論 $z$ 是多麼大的正數或多麼小的負數，經由 Sigmoid 轉換後，最終輸出 $P = P(Y=1|X)$ 永遠緊緊被鎖定在 $0.0$ 到 $1.0$ 之間（代表成功轉換的機率）。
+無論 $z$ 是多麼大的正數或多麼小的負數，經由 Sigmoid 轉換後，最終輸出 $P = P(Y=1|X)$ 永遠緊緊被鎖定在 $0.0$ 到 $1.0$ 之間（代表成功轉換的機率）。
 
 ---
 
-### 1.3 對數勝算（Log-Odds）與勝算比（Odds Ratio） 為了理解邏輯斯迴歸中係數（$\beta$）的統計意義，我們需要理解勝算（Odds） 的概念。
+### 1.3 對數勝算（Log-Odds）與勝算比（Odds Ratio）
+
+為了理解邏輯斯迴歸中係數（$\beta$）的統計意義，我們需要理解勝算（Odds） 的概念。
 
 1. 勝算（Odds）： 事件發生機率 $P$ 與未發生機率 $(1-P)$ 的比值：$$\text{Odds} = \frac{P}{1 - P}$$
 
@@ -159,21 +134,26 @@ flowchart LR
 因此，在邏輯斯迴歸中，若一個欄位有 $K$ 個類別，我們只保留 $K-1$ 個虛擬變數，將被剔除的那一個類別作為「對照基準組（Reference Group）」 。
 
 ```python
+!pip install ucimlrepo
 import pandas as pd
-from ucimlrepo import fetch_ucimlrepo
+from ucimlrepo import fetch_ucirepo
+
 # 1. 載入 Bank Marketing 資料集 (id=222)
-bank_marketing = fetch_ucimlrepo(id=222)
+bank_marketing = fetch_ucirepo(id=222)
 X = bank_marketing.data.features.copy()
 y = bank_marketing.data.targets.copy()
 df = X.copy()
 df['conversion'] = (y['y'] == 'yes').astype(int)
+
 # 2. 對二元類別變數進行 0/1 標籤轉換
 df['housing_code'] = (df['housing'] == 'yes').astype(int)
 df['loan_code'] = (df['loan'] == 'yes').astype(int)
+
 # 3. 處理多類別欄位 contact：One-Hot 編碼
 contact_dummies = pd.get_dummies(
     df['contact'], prefix='contact', dtype=int
 )
+
 # 4. 避免虛擬變數陷阱：保留 cellular 與 telephone
 df['contact_cellular'] = contact_dummies['contact_cellular']
 df['contact_telephone'] = contact_dummies['contact_telephone']
@@ -386,15 +366,6 @@ print(logit_model_m2.summary())
 ### 4.1 從迴歸模型萃取 4 大核心行銷洞察
 
 透過邏輯斯迴歸模型的量化驗證，我們從 Bank Marketing 資料集中獲得了 4 大深刻的商業洞察：
-
-```mermaid
-flowchart TD
-    Insight1["1. 聯絡管道極致關鍵 (Odds Ratio = 4.56 倍)<br/>手機聯絡顧客之訂閱勝算是未知管道的 4.56 倍，市話為 4.22 倍。"]
-    Insight2["2. 通話時間代表實質意圖 (每多 1 分鐘勝算 +26.4%)<br/>通話長度 coef > 0 且極顯著，時間是顧客展現購買意圖的強烈信號。"]
-    Insight3["3. 財務負擔產生強烈排擠 (房貸勝算 -59.6%, 信貸 -53.7%)<br/>有房貸與信貸者資金流緊縮，對定期存款推廣具備顯著阻力。"]
-    Insight4["4. 過度打擾適得其反 (多打一次勝算 -14.5%)<br/>campaign 係數為負，頻繁致電會引發顧客厭煩與反感。"]
-    Insight1 & Insight2 & Insight3 & Insight4 ==> Strategy["驅動資料驅動的精準行銷與名單篩選策略"]
-```
 
 1. 聯絡管道是成功的基礎門檻（`contact_cellular` $\text{OR} = 4.56$）：
    - 相較於資訊不齊全的 `unknown` 管道，使用行動電話聯繫顧客，訂閱勝算大增4.56 倍 （$456\%$）；使用市話亦高達4.22 倍 。
