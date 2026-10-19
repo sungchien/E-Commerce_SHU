@@ -151,7 +151,7 @@ df['loan_code'] = (df['loan'] == 'yes').astype(int)
 
 # 3. 處理多類別欄位 contact：One-Hot 編碼
 contact_dummies = pd.get_dummies(
-    df['contact'], prefix='contact', dtype=int
+    df['contact'], prefix='contact', dummy_na=True, dtype=int
 )
 
 # 4. 避免虛擬變數陷阱：保留 cellular 與 telephone
@@ -170,7 +170,7 @@ print(df[[
 請同學們在 Colab 中嘗試執行以下二元編碼練習：
 
 1. 二元編碼： 撰寫一行程式碼 `df['default_code'] = (df['default'] == 'yes').astype(int)` ，將有無信用違約紀錄轉為 0/1 數值。
-2. 多類別編碼： 執行 `pd.get_dummies(df['marital'], drop_first=True)` ，觀察預設 drop_first=True 會自動剔除哪一個婚姻類別作為對照基準組？
+2. 多類別編碼： 執行 `pd.get_dummies(df['marital'], drop_first=True, dtype=int)` ，觀察預設 drop_first=True 會自動剔除哪一個婚姻類別作為對照基準組？
 3. 小組討論： 為什麼在邏輯斯迴歸中一定要剔除一個對照組？如果三個婚姻狀態（`married`, `single`, `divorced`）全部放進模型會發生什麼事？
 
 > 老師的提醒：
