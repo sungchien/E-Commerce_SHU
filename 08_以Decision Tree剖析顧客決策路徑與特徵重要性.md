@@ -40,9 +40,13 @@ puppeteer:
     overflow-wrap: break-word !important;
   }
 
-  /* Mermaid 流程圖節點字體放大 */
-  .mermaid text {
-    font-size: 16px !important;
+  /* 圖片自適應寬度與防跨頁截斷 */
+  img {
+    max-width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    margin: 12px auto !important;
+    page-break-inside: avoid !important;
   }
 </style>
 
@@ -64,25 +68,6 @@ puppeteer:
 
 最後，本章作為「模組一：關鍵指標與轉換率」的終章，我們將帶領同學們進行一場精彩的三方交叉比對（Three-Way Cross-Verification）：將第 5 週的 EDA 樞紐下鑽、第 6 週的邏輯斯迴歸勝算比與第 8 週的決策樹規則互相對照，體驗資料科學家在實務專案中相輔相成、全方位驗證商業洞察的完整歷程！
 
-```mermaid
-flowchart TD
-    subgraph Step1["第一階段：決策樹理論與樹狀結構"]
-        A["直觀 IF-THEN 決策流程圖"] --> B["根節點 (Root Node) / 內部節點 / 葉節點"]
-        B --> C["Gini 不純度與資訊增益 (純度最大化切割)"]
-    end
-    subgraph Step2["第二階段：Python 實戰建模與剪枝"]
-        C --> D["Scikit-Learn DecisionTreeClassifier 訓練"]
-        D --> E["特徵重要性 (Feature Importance) 評估"]
-        D --> F["樹狀圖繪製 (plot_tree) 與 max_depth 剪枝"]
-    end
-    subgraph Step3["第三階段：模組一三方交叉比對 (Cross-Verification)"]
-        E & F --> G["EDA 下鑽 (現象) vs. Logit (勝算倍數) vs. Decision Tree (路徑規則)"]
-    end
-    subgraph Step4["第四階段：商業企劃與精準名單落實"]
-        G ==> H["產出高效益、低成本之自動化電話行銷規則指南"]
-    end
-```
-
 ---
 
 ## 第一節：決策樹（Decision Tree）的基本概念與直觀視覺化
@@ -91,14 +76,7 @@ flowchart TD
 
 在日常生活中，人類的大腦非常習慣以流程圖（Flowchart）的形式來做出決策。例如，當你早上醒來思考「今天出門是否要帶雨傘？」時，你的大腦會執行以下一系列的條件判斷：
 
-```mermaid
-flowchart TD
-    Q1{"氣象預報說會下雨嗎？"}
-    Q1 -- "是" --> Ans1["帶雨傘出門 (決策完成)"]
-    Q1 -- "否" --> Q2{"抬頭看天空有烏雲嗎？"}
-    Q2 -- "是" --> Ans2["帶摺疊傘備用 (決策完成)"]
-    Q2 -- "否" --> Ans3["不帶雨傘 (決策完成)"]
-```
+![日常生活決策樹：出門帶傘流程圖](img/ch08_umbrella_decision_tree.png)
 
 決策樹（Decision Tree）模型就是運用完全相同的邏輯來對資料進行分類與預測。它透過一系列「如果……就……（IF-THEN）」的簡單規則，將龐大複雜的資料集逐步拆解為高純度的子集。
 
@@ -113,13 +91,7 @@ flowchart TD
 3. 內部節點（Internal Node）： 代表決策路徑上的每一個中間過濾問題（例如：前次行銷是否成功？有無房貸？）。
 4. 葉節點（Leaf Node）： 代表最終的分類結果（例如：標記為 $y=1$「會訂閱」或 $y=0$「不會訂閱」），葉節點不再進行切割。
 
-```mermaid
-flowchart TD
-    Root["根節點 (Root Node)<br/>全體顧客 (100%)"] -->|問題一: 通話時間 > 8.7分鐘?| Internal1["內部節點 (Internal Node)<br/>長通話顧客群"]
-    Root -->|否| Internal2["內部節點 (Internal Node)<br/>短通話顧客群"]
-    Internal1 -->|問題二: 前次活動結果成功?| Leaf1["葉節點 (Leaf Node)<br/>預測: 成功訂閱 (y=1)<br/>轉換率高達 65%"]
-    Internal1 -->|否| Leaf2["葉節點 (Leaf Node)<br/>預測: 未訂閱 (y=0)"]
-```
+![決策樹的四大核心組成分件](img/ch08_decision_tree_components.png)
 
 ---
 
@@ -186,6 +158,8 @@ $$\text{Gini} = 1 - (p_0^2 + p_1^2)$$
 我們繼續使用同學們熟悉的 UCI Bank Marketing 資料集（`id=222`），使用 Scikit-Learn 的 `DecisionTreeClassifier` 套件建立決策樹分類模型：
 
 ```python
+!pip install ucimlrepo
+
 import pandas as pd
 import numpy as np
 from sklearn.tree import (
@@ -492,12 +466,7 @@ print(pd.DataFrame(threshold_results))
 
 在真實的資料科學顧問專案中，資深分析師絕不會只依賴單一模型，而是透過「三方交叉比對」來交互驗證商業洞察：
 
-```mermaid
-flowchart LR
-    EDA["EDA 樞紐下鑽 (W5)<br/>發現 >10分鐘長通話與<br/>60+高齡族群轉換率高"] <--> Logit["邏輯斯迴歸 (W6)<br/>驗證通話時間 coef > 0 (極顯著)<br/>age_60+ 勝算比 OR = 2.70 倍"]
-    Logit <--> DT["決策樹 (W8)<br/>自動選定 duration > 521.5s<br/>為第一大核心特徵 (重要性 63.5%)"]
-    DT <--> EDA
-```
+![模組一三方交叉比對](img/ch08_three_way_verification.png)
 
 #### 三方交叉比對的完美一致性驗證：
 1. 通話時間（`duration`）的終極驗證：
