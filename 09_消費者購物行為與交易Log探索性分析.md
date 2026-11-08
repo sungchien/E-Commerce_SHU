@@ -40,9 +40,13 @@ puppeteer:
     overflow-wrap: break-word !important;
   }
 
-  /* Mermaid 流程圖節點字體放大 */
-  .mermaid text {
-    font-size: 16px !important;
+  /* 圖片自適應寬度與防跨頁截斷 */
+  img {
+    max-width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    margin: 12px auto !important;
+    page-break-inside: avoid !important;
   }
 </style>
 
@@ -62,22 +66,7 @@ puppeteer:
 
 為了讓同學們掌握國際級電商的 CRM 數據營運邏輯，模組二將圍繞著「如何一步步精準估算 CLV 與分析流失率（Churn Rate）」展開為期三週的漸進式進化主線：
 
-```mermaid
-flowchart LR
-    subgraph W9["第九週：全局單一 CLV 基準 (Global Baseline)"]
-        W9_1["計算顧客 Frequency, AOV<br/>與 AOV 離群值 P95 截斷修正"] --> W9_2["計算全局平均流失率 (靜止天數 > 90天)"]
-        W9_2 --> W9_3["算出全局單一估算 CLV 基準<br/>(痛點: 一刀切, 高估沉睡客、低估 VIP)"]
-    end
-    subgraph W10["第十週：分群分級 CLV (Segmented CLV)"]
-        W10_1["RFM K-Means 劃分 4 大客群"] --> W10_2["計算各群專屬 AOV, F 與獨立流失率<br/>(VIP流失率10% vs 沉睡客80%)"]
-        W10_2 --> W10_3["算出按客群分級 CLV<br/>(突破: 破除單一流失率迷思)"]
-    end
-    subgraph W11["第十一週：個體預測 CLV (Individual ML CLV)"]
-        W11_1["時間序列特徵工程 (P1~P3 vs P4)"] --> W11_2["10-Fold 迴歸預測個體金額 y_i"]
-        W11_2 --> W11_3["達成一對一精準 CLV 與動態流失預警<br/>(落地: 2D CRM 干預矩陣)"]
-    end
-    W9 ==> W10 ==> W11
-```
+![模組二第 9 至 11 週 CLV 估算與流失率分析漸進式學習主線](img/ch09_module2_clv_roadmap.png)
 
 為了進行這項跨週的深度行為剖析，本模組採用國際著名的 UCI Online Retail 跨國電商交易 Log 資料集（`id=352`），包含 54 萬筆真實電商交易流水帳（Transaction Logs）。
 
@@ -100,16 +89,7 @@ flowchart LR
 
 然而在電子商務營運中，一位顧客會在電商平台上發起多次購物、購買多種商品、退換貨、甚至是停用服務。因此，我們的分析單元必須從「單次活動」提升為「顧客全生命週期（Customer Lifecycle）」。
 
-```mermaid
-flowchart LR
-    subgraph Module1["模組一：單次轉換分析"]
-        M1["潛在顧客 (Lead) <br/>↓<br/>單次撥打/行銷推播<br/>↓<br/>回應與否 (y = 0/1)"]
-    end
-    subgraph Module2["模組二：消費者行為與 CRM"]
-        M2["全新顧客 (Acquisition)<br/>↓<br/>重複購物與頻率 (Retention)<br/>↓<br/>消費金額與升售 (Cross-sell/Up-sell)<br/>↓<br/>顧客終身價值 (CLV) & 流失預警"]
-    end
-    Module1 ==> Module2
-```
+![從模組一單次轉換分析邁向模組二消費者行為與 CRM](img/ch09_module1_to_module2_lifecycle.png)
 
 ---
 
@@ -131,14 +111,7 @@ flowchart LR
 
 在電子商務與成長行銷（Growth Marketing）中，CLV 被譽為最核心的北極星指標（North Star Metric），其最關鍵的商業應用在於：為顧客取得成本（Customer Acquisition Cost, CPA）提供客觀且合理的預算上限！
 
-```mermaid
-flowchart LR
-    subgraph CLVEconomics["CLV 與 CPA 商業天平"]
-        CPA["顧客取得成本 (CPA)<br/>廣告費 + 促銷折價 + 電銷人力"] <--> CLV["顧客終身價值 (CLV)<br/>未來累計淨收益總和"]
-    end
-    CPA -- "CPA < CLV" --> Profit["商業模式健康 (獲利增長)"]
-    CPA -- "CPA > CLV" --> Loss["商業模式崩潰 (越投越虧)"]
-```
+![CLV 與 CPA 商業天平與決策判斷](img/ch09_clv_cpa_economics.png)
 
 #### CLV 決定的三大商業策略決策：
 
@@ -156,11 +129,7 @@ flowchart LR
 
 為了帶領同學們解構業界的 CRM 資料分析方法，本模組將跨越三週，逐步實現三大 CLV 計算演進階段：
 
-```mermaid
-flowchart TD
-    Stage1["第一階段：全局單一 CLV (Global Average)<br/>對應第 9 週 (本章節)<br/>全站一刀切, 適用單一流失率<br/>痛點: 低估 VIP, 高估沉睡客"] --> Stage2["第二階段：按客群分級 CLV (Segmented CLV)<br/>對應第 10 週<br/>RFM + K-Means (K=4) 群體劃分<br/>計算專屬 Churn_k, AOV_k, Lifespan_k"]
-    Stage2 --> Stage3["第三階段：個體化機器學習迴歸 CLV (Individual ML)<br/>對應第 11 週<br/>P1~P3 歷史特徵預測 P4 個體金額 y_i<br/>95分位數截斷 + 10-Fold CV + 2D 矩陣"]
-```
+![三大 CLV 計算演進階段與本模組課程章節對應](img/ch09_clv_three_stages.png)
 
 1. 第一階段：全局單一公式 CLV（Global Average CLV）
    - 對應章節：第九週第 3.3 節（本章節）。
@@ -198,11 +167,45 @@ flowchart TD
 本章採用 UCI Machine Learning Repository 的 Online Retail 資料集（`id=352`）。這是一家總部位於英國的跨國線上零售電商，在 2010 年 12 月至 2011 年 12 月期間的所有真實交易明細：
 
 ```python
+!pip install ucimlrepo
+
+# === 處理圖形中的中文問題 ===
+# 因為matplotlib原本預設的字型無法顯示中文。為了處理圖形中的中文問題，接下來先取得google提供的Noto Sans TC字型，解壓縮，移動到字型所在目錄。
+# 開頭為驚嘆號(!)的指令是linux作業系統的指令。
+# 使用 apt-get 安裝 Google Noto 繁體中文/日韓字型套件，此方法最為穩定
+!apt-get install -y fonts-noto-cjk
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from ucimlrepo import fetch_ucirepo
+
+# === 設定中文字型 ===
+# 移除舊快取並使用 fontManager 直接註冊字型檔名與設定 font.family
+import matplotlib as mpl
+import shutil
+import os
+
+cache_dir = mpl.get_cachedir()
+if os.path.exists(cache_dir):
+    shutil.rmtree(cache_dir)
+
+import matplotlib.font_manager as fm
+
+# 載入 TTC 字型檔並直接新增字型物件
+font_entry = fm.FontEntry(
+    fname='/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+    name='Noto Sans CJK TC'
+)
+fm.fontManager.ttflist.insert(0, font_entry)
+
+# 強制設定為第一預設字型
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = ['Noto Sans CJK TC', 'Noto Sans CJK JP', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False
+
+print("字型快取已重建，且已優先將 Noto Sans CJK TC 註冊入系統！")
 
 # 1. 載入 UCI Online Retail 資料集 (id=352)
 online_retail = fetch_ucirepo(id=352)
@@ -229,16 +232,7 @@ print(df_raw.head())
 
 真實商業環境中的交易流水帳充滿了雜訊與異常值，在進行探索性分析前，必須執行嚴格的資料清洗（Data Cleaning）：
 
-```mermaid
-flowchart TD
-    Raw["原始交易 Log (541,909 筆)"] --> Step1{"檢查 CustomerID 是否缺失?"}
-    Step1 -- "是 (未登入/訪客結帳)" --> Drop1["剔除 135,080 筆 (占 24.9%)"]
-    Step1 -- "否" --> Step2{"檢查 Quantity > 0?"}
-    Step2 -- "否 (銷退/退貨單 Invoice C)" --> Drop2["剔除 10,624 筆銷退紀錄"]
-    Step2 -- "是" --> Step3{"檢查 UnitPrice > 0?"}
-    Step3 -- "否 (免費贈品/系統調整)" --> Drop3["剔除 2,517 筆單價異常"]
-    Step3 -- "是" --> Clean["乾淨有效交易 Log (397,884 筆)<br/>包含 4,338 位獨立顧客"]
-```
+![UCI Online Retail 交易 Log 三大資料異常清洗流程](img/ch09_data_cleaning_pipeline.png)
 
 ```python
 # 1. 檢視缺失值與異常值狀況
@@ -303,14 +297,7 @@ print(f"總產生營收金額: "
 除了基礎的平均數與中位數外，我們撰寫進階統計函數計算標準差（Std）、四分位距（IQR）與偏斜度（Skewness），隨後運用 Seaborn 繪製四大指標直方圖與 KDE 密度曲線圖（Density Plot），視覺化驗證資料的正偏斜（右偏斜 Positive Skewness）特性：
 
 ```python
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-
 # 1. 進行顧客維度聚合 (Customer-Level Aggregation)
-snapshot_date = df_clean['InvoiceDate'].max() + pd.Timedelta(days=1)
-
 customer_df = df_clean.groupby('CustomerID').agg(
     orders=('InvoiceNo', 'nunique'),
     total_quantity=('Quantity', 'sum'),
@@ -322,6 +309,8 @@ customer_df = df_clean.groupby('CustomerID').agg(
 customer_df['avg_order_value'] = (
     customer_df['total_revenue'] / customer_df['orders']
 )
+
+snapshot_date = df_clean['InvoiceDate'].max() + pd.Timedelta(days=1)
 customer_df['recency'] = (
     snapshot_date - customer_df['last_purchase']
 ).dt.days
@@ -441,7 +430,7 @@ plt.show()
 如果在估算全站 CLV 前，直接使用未經處置的原始平均 AOV（$419.17$），少數幾位金額極巨大的離群值大戶會大幅拉高平均值，導致全站 90% 以上的普通 C 端零售顧客在 CLV 估算中產生嚴重的虛高與偏差。
 
 #### AOV 離群值修正調整作法（95 分位數封頂截斷 / Quantile Capping / Winsorization）：
-為了避免離群值對 CLV 的扭曲，我們在 EDA 之後、計算 CLV 之前，對 AOV 套用 95 分位數截斷處理（Winsorization）：將超過第 95 分位數（$P_{95} \approx $732.50$）的極端 AOV，一律封頂修飾為 $P_{95}$ 臨界值。
+為了避免離群值對 CLV 的扭曲，我們在 EDA 之後、計算 CLV 之前，對 AOV 套用 95 分位數截斷處理（Winsorization）：將超過第 95 分位數（$P_{95} \approx \$732.50 $）的極端 AOV，一律封頂修飾為  $ P_{95} $ 臨界值。
 
 ```python
 # 1. 計算 AOV 之第 95 分位數 (P95 Threshold)
@@ -532,26 +521,22 @@ print(f"AOV 修正後之穩健全局 Baseline CLV: "
 我們撰寫 Python 程式碼，將 4,338 位顧客按總消費金額從高到低降冪排序，計算顧客累計排名百分比與營收累積分佈（ECDF），繪製帕累托曲線圖，並計算前 1%、5%、10%、20% 與後 50% 顧客的詳細營收貢獻：
 
 ```python
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-
 # 1. 將顧客按總消費金額降冪排序
 customer_sorted = customer_df.sort_values(
     by='total_revenue', ascending=False
 ).reset_index(drop=True)
 
 # 2. 計算顧客累積百分比與營收累積百分比 (Pareto ECDF)
+customer_sorted['customer_rank_pct'] = (
+    (customer_sorted.index + 1) / len(customer_sorted)
+)
+
 customer_sorted['cum_revenue'] = (
     customer_sorted['total_revenue'].cumsum()
 )
 customer_sorted['cum_rev_pct'] = (
     customer_sorted['cum_revenue'] /
     customer_sorted['total_revenue'].sum()
-)
-customer_sorted['customer_rank_pct'] = (
-    (customer_sorted.index + 1) / len(customer_sorted)
 )
 
 # 3. 計算各分位顧客之營收貢獻實測數據
@@ -638,18 +623,19 @@ df_clean['DayOfWeek'] = df_clean['InvoiceDate'].dt.day_name()
 df_clean['Hour'] = df_clean['InvoiceDate'].dt.hour
 
 # 2. 建立 星期 x 小時 訂單數交叉樞紐表
-day_order = [
-    'Monday', 'Tuesday', 'Wednesday',
-    'Thursday', 'Friday', 'Sunday'
-] # 週六無交易資料
 pivot_time = df_clean.pivot_table(
     index='DayOfWeek', 
     columns='Hour', 
     values='InvoiceNo', 
     aggfunc='nunique'
-).reindex(day_order)
+)
 
-# 3. 繪製熱點圖 (Heatmap)
+# 3. 將pivot_time按照DayOfWeek重新排序
+pivot_time = pivot_time.reindex(
+    ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Sunday']
+)
+
+# 4. 繪製熱點圖 (Heatmap)
 plt.figure(figsize=(12, 5))
 sns.heatmap(
     pivot_time, cmap='YlGnBu', annot=False,
