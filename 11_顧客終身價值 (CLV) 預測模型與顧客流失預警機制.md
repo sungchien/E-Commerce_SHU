@@ -25,24 +25,45 @@ puppeteer:
   h3 { font-size: 18pt !important; }
   h4 { font-size: 15pt !important; }
 
-  /* 表格文字放大與排版優化 */
+  /* 表格文字放大與排版優化（防止超過頁寬與跨頁截斷） */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: auto !important;
+    margin: 16px 0 !important;
+    page-break-inside: avoid !important;
+  }
   table, th, td {
-    font-size: 16pt !important;
-    line-height: 1.5 !important;
+    font-size: 13.5pt !important;
+    line-height: 1.45 !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+  th, td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 8px 6px !important;
+  }
+  th {
+    background-color: #f1f5f9 !important;
+    font-weight: bold !important;
   }
 
-  /* 程式碼區塊 */
+  /* 程式碼區塊（防止水平溢出頁面邊界） */
   pre, code {
-    font-size: 16pt !important;
+    font-size: 15pt !important;
     font-family: Consolas, "Courier New", monospace !important;
     white-space: pre-wrap !important;
     word-break: break-word !important;
     overflow-wrap: break-word !important;
   }
 
-  /* Mermaid 流程圖節點字體放大 */
-  .mermaid text {
-    font-size: 16px !important;
+  /* 圖片自適應寬度與防跨頁截斷 */
+  img {
+    max-width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    margin: 14px auto !important;
+    page-break-inside: avoid !important;
   }
 </style>
 
@@ -55,8 +76,8 @@ puppeteer:
 歡迎來到電子商務服務課程第十一章！
 
 在第九週與第十週的學習歷程中，我們建立了模組二（消費者購物行為與 CRM 顧客關係管理）的前兩大里程碑：
-- 第九週：我們完成了 54 萬筆交易明細 Log 到 4,338 位獨立顧客維度（Customer-Level）的資料轉化與聚合，驗證了消費金額的正偏斜特徵與帕累托法則（80/20 法則）。我們進行了 AOV 離群值 95 分位數截斷修正（將 AOV 偏斜度從 +41.69 降低至 +1.15，得出穩健 AOV $315.40$），並進行了「第一階段：全局 Baseline CLV 估算」（算出一流失率 38.45%、留存期 2.60 年、穩健全局 Baseline CLV $3,502.80$），並揭露了「全局平均迷思（Global Average Trap）」——全局公式會嚴重低估頂級 VIP、嚴重高估沉睡客！
-- 第十週：我們透過對數轉換（`np.log1p`）與 `StandardScaler` 標準化進行特徵工程，運用 K-Means 非監督式機器學習演算法（$K=4$）將顧客劃分為四大 Persona 畫像群體（Champions, Loyalists, Promising, Hibernating）。接著，我們成功邁向「第二階段：按客群分級計算 CLV（Segmented CLV）」，為各群體計算專屬流失率與留存期（Champions 留存期 9.8 年, CLV $57,046$vs. Hibernating 留存期 1.27 年, CLV $393.70$），完美破除了全局一刀切的迷思！
+- 第九週：我們完成了 54 萬筆交易明細 Log 到 4,338 位獨立顧客維度（Customer-Level）的資料轉化與聚合，驗證了消費金額的正偏斜特徵與帕累托法則（80/20 法則）。我們進行了 AOV 離群值 95 分位數截斷修正（將 AOV 偏斜度從 +41.69 降低至 +1.15，得出穩健 AOV $\$315.40$），並進行了「第一階段：全局 Baseline CLV 估算」（算出一流失率 38.45%、留存期 $2.60$ 年、穩健全局 Baseline CLV $\$3,502.80$），並揭露了「全局平均迷思（Global Average Trap）」——全局公式會嚴重低估頂級 VIP、嚴重高估沉睡客！
+- 第十週：我們透過對數轉換（`np.log1p`）與 `StandardScaler` 標準化進行特徵工程，運用 K-Means 非監督式機器學習演算法（$K=4$）將顧客劃分為四大 Persona 畫像群體（Champions, Loyalists, Promising, Hibernating）。接著，我們成功邁向「第二階段：按客群分級計算 CLV（Segmented CLV）」，為各群體計算專屬流失率與留存期（Champions 留存期 $10.0$ 年, CLV $\$61,433.73$ vs. Hibernating 留存期 $1.39$ 年, CLV $\$490.63$ ），完美破除了全局一刀切的迷思！
 
 到了第十一週，我們將邁向三大 CLV 演進階段的最終站——「第三階段：個體化機器學習迴歸 CLV 預測（Individual ML Regression CLV）」。
 
@@ -70,20 +91,7 @@ puppeteer:
 > 3. 掌握訓練集與測試集劃分邏輯，並精通 10-Fold 交叉驗證與 95 分位數截斷前處理：理解 train_test_split 的單次劃分侷限，運用 10-Fold CV 進行折外預測（OOF），並透過 95 分位數截斷顯著降低 MAE 誤差與提升 R²。
 > 4. 建構二維 CLV-流失風險 CRM 決策矩陣：結合預測金額與流失風險，為四大客群規劃自動化召回與 VIP 維護策略，完成模組二之學習總結。
 
-```mermaid
-flowchart TD
-    subgraph Phase1["第一階段：電商 CRM 核心理論與價值天平"]
-        A["釐清 CLV, CPA, 流失率 (Churn) 與留存 (Retention) 之商業邏輯"] --> B["理解舊客留存成本遠低於獲客成本 (5~7倍差距) 之經濟原理"]
-        B --> C["區分新客 CPA 上限 (Cohort 基準) 與舊客留存預測 (P1~P4)"]
-    end
-    subgraph Phase2["第二階段：機器學習迴歸模型與成效診斷"]
-        C --> D["時間序列特徵工程 (P1~P3 歷史特徵 X vs. P4 未來金額 y)"]
-        D --> E["95 分位數截斷、10-Fold 交叉驗證、評估指標 (MAE & R²) 與模型診斷"]
-    end
-    subgraph Phase3["第三階段：流失預警機制與 2D CRM 策略落地"]
-        E ==> F["建構二維 CLV-流失風險決策矩陣，實現自動化預警與精準行銷"]
-    end
-```
+![第十一章學習進程：從 CRM 價值天平到個體 CLV 預測與流失預警](img/ch11_learning_roadmap.png)
 
 ---
 
@@ -112,16 +120,7 @@ flowchart TD
 
 例如：預測每位顧客在未來 3 個月（或 12 個月）內的累積交易總金額。
 
-```mermaid
-flowchart LR
-    subgraph HistoricWindow["歷史觀察特徵窗口 (P1 ~ P3)"]
-        X["歷史交易 Log 特徵矩陣 X_i<br/>Recency, Frequency, Monetary<br/>未購補零 Zero-Padding"]
-    end
-    subgraph FutureWindow["未來預測價值窗口 (P4)"]
-        Y["個體未來消費金額 y_i<br/>(Supervised Regression)"]
-    end
-    HistoricWindow ==> FutureWindow
-```
+![時間序列固定窗口 CLV 預測架構圖](img/ch11_fixed_window_prediction.png)
 
 雖然這預測的是未來特定區間的金額 $y_i \in [0, \infty)$，而非真正抽象的一輩子，但它具備極高的商業操作性，能讓團隊精準捕捉個體流失風險，並將預測目標轉化為機器學習的迴歸問題（Supervised Regression Problem）。
 
@@ -180,12 +179,44 @@ df_clv['target_P4_monetary_capped'] = np.clip(
 我們繼續使用 UCI Online Retail 跨國電商交易 Log 資料集（`id=352`），建立線性迴歸模型來預測顧客在未來一個區間（3 個月）的交易總金額。
 
 ```python
+# 開頭為驚嘆號(!)的指令是linux作業系統的指令。
+!pip install ucimlrepo
+
+# === 處理圖形中的中文問題 ===
+# 因為matplotlib原本預設的字型無法顯示中文。
+# 為了處理圖形中的中文問題，使用 apt-get 安裝 Google Noto 繁體中文/日韓字型套件，此方法最為穩定
+!apt-get install -y fonts-noto-cjk
+
 import pandas as pd
 import numpy as np
 import datetime as dt
 import matplotlib.pyplot as plt
 import seaborn as sns
 from ucimlrepo import fetch_ucirepo
+
+import matplotlib as mpl
+import shutil
+import os
+import matplotlib.font_manager as fm
+
+# 移除舊快取並使用 fontManager 直接註冊字型檔名與設定 font.family
+cache_dir = mpl.get_cachedir()
+if os.path.exists(cache_dir):
+    shutil.rmtree(cache_dir)
+
+# 載入 TTC 字型檔並直接新增字型物件
+font_entry = fm.FontEntry(
+    fname='/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+    name='Noto Sans CJK TC'
+)
+fm.fontManager.ttflist.insert(0, font_entry)
+
+# 強制設定為第一預設字型
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = ['Noto Sans CJK TC', 'Noto Sans CJK JP', 'DejaVu Sans']
+plt.rcParams['axes.unicode_minus'] = False
+
+print("字型快取已重建，且已優先將 Noto Sans CJK TC 註冊入系統！")
 
 # 1. 載入 Online Retail 資料集 (id=352)
 online_retail = fetch_ucirepo(id=352)
@@ -194,7 +225,8 @@ df_raw = online_retail.data.original.copy()
 # 2. 資料清洗管道 (Data Cleaning Pipeline)
 df_clean = df_raw.dropna(subset=['CustomerID']).copy()
 df_clean = df_clean[
-    (df_clean['Quantity'] > 0) & (df_clean['UnitPrice'] > 0)
+    (df_clean['Quantity'] > 0) &
+    (df_clean['UnitPrice'] > 0)
 ].copy()
 
 # 轉換型態與計算單筆明細金額
@@ -240,7 +272,9 @@ active_customers = invoice_df[
 df_clv = pd.DataFrame({'CustomerID': active_customers})
 
 # 3. 撰寫區間特徵提取函數 (內建 95 分位數金額截斷)
-def extract_period_features(df, start_date, end_date, prefix):
+def extract_period_features(
+    df, start_date, end_date, prefix
+):
     sub_df = df[
         (df['InvoiceDate'] >= start_date) &
         (df['InvoiceDate'] <= end_date)
@@ -275,9 +309,15 @@ f_p3 = extract_period_features(
     invoice_df, p3_start, p3_end, 'P3'
 )
 
-df_clv = df_clv.merge(f_p1, on='CustomerID', how='left')
-df_clv = df_clv.merge(f_p2, on='CustomerID', how='left')
-df_clv = df_clv.merge(f_p3, on='CustomerID', how='left')
+df_clv = df_clv.merge(
+    f_p1, on='CustomerID', how='left'
+)
+df_clv = df_clv.merge(
+    f_p2, on='CustomerID', how='left'
+)
+df_clv = df_clv.merge(
+    f_p3, on='CustomerID', how='left'
+)
 df_clv.fillna(0, inplace=True)
 
 # 4. 提取 P4 預測目標金額 (y) 並執行 95 分位數截斷
@@ -293,13 +333,17 @@ target_df.rename(
     inplace=True
 )
 
-df_clv = df_clv.merge(target_df, on='CustomerID', how='left')
+df_clv = df_clv.merge(
+    target_df, on='CustomerID', how='left'
+)
 df_clv['target_P4_monetary'].fillna(0, inplace=True)
 
 # 對預測目標 y 進行 95 分位數截斷 (Winsorization)
 p95_y = df_clv['target_P4_monetary'].quantile(0.95)
 df_clv['target_P4_monetary_capped'] = np.clip(
-    df_clv['target_P4_monetary'], a_min=None, a_max=p95_y
+    df_clv['target_P4_monetary'], 
+    a_min=None, 
+    a_max=p95_y
 )
 
 print(f"P4 目標金額 P95 截斷門檻: ${p95_y:.2f} 英鎊")
@@ -399,7 +443,7 @@ y_test_pred = np.clip(y_test_pred, a_min=0, a_max=None)
 test_mae = median_absolute_error(y_test, y_test_pred)
 test_r2 = r2_score(y_test, y_test_pred)
 
-print("\n=== 單一次劃分 (70/30 train_test_split) 測試集評估成效 ===")
+print("\n=== 單一次劃分 (70/30 train_test_split) 測試集評估 ===")
 print(f"單次測試集中值絕對差 (MAE): ${test_mae:.2f} 英鎊")
 print(f"單次測試集 R² 決定係數: {test_r2:.4f}")
 ```
@@ -430,17 +474,7 @@ K-Fold 交叉驗證（以最常採用的 K=10 為例）的運作邏輯如下：
 2. 循環迭代： 進行 10 輪獨立的訓練與驗證。在第 1 輪中，使用 Fold 1 至 Fold 9（90% 資料）作為訓練集， Fold 10（10% 資料）作為驗證集；第 2 輪則使用 Fold 10 作為驗證集……以此類推，輪流替換。
 3. 總體無偏評估： 經過 10 輪循環後，資料集中的每一位顧客都有且僅有一次作為獨立測試集的機會。
 
-```mermaid
-flowchart TD
-    Start["開始：輸入全體特徵矩陣 X 與目標向量 y<br/>(已套用 P95 極端值截斷前處理)"] --> Split["1. 資料集平均劃分 (Split Data)<br/>隨機打亂並平均分割為 K 個相等的子集 (Folds F_1 ~ F_K, 通常 K=10)"]
-    Split --> LoopStart["2. 進入 10 輪循環迭代 (Iterative Loop k = 1...10)"]
-    LoopStart --> TrainVal["3. 分派訓練與驗證集 (Assign Train / Val)<br/>保留第 k 個 Fold (10% 資料) 作為驗證集<br/>其餘 K-1 個 Folds (90% 資料) 合併為訓練集"]
-    TrainVal --> FitPred["4. 訓練與折外預測 (Fit & Predict)<br/>於訓練集上擬合迴歸模型 fit()<br/>於第 k 個驗證集進行預測 predict() 產出 OOF 預估值"]
-    FitPred --> Check{"5. 是否完成所有 K 輪迭代？"}
-    Check -- "否 (k < 10)" --> LoopStart
-    Check -- "是 (k = 10)" --> Aggregate["6. 彙總折外評估 (Aggregate OOF Metrics)<br/>計算全體 Out-of-Fold (OOF) MAE<br/>與 10 輪 R² 得分之平均值與標準差"]
-    Aggregate --> End["結束：輸出無偏估計結果與個體 OOF 預測向量 y_oof"]
-```
+![10-Fold 交叉驗證與 Out-of-Fold (OOF) 預測流程圖](img/ch11_kfold_cv_workflow.png)
 
 ---
 
@@ -488,7 +522,10 @@ print(f"10-Fold 全局 R² 決定係數: {oof_r2:.4f}")
 
 # 5. 繪製 10-Fold OOF 散佈診斷圖
 plt.figure(figsize=(8, 6))
-sns.scatterplot(x=y, y=y_oof_pred, alpha=0.5, color='indigo')
+sns.scatterplot(
+    x=y, y=y_oof_pred, 
+    alpha=0.5, color='indigo'
+)
 max_val = max(y.max(), y_oof_pred.max())
 plt.plot(
     [0, max_val], [0, max_val], 'r--',
@@ -498,8 +535,14 @@ plt.title(
     "10-Fold CV 折外預測診斷圖 (套用 P95 截斷後)",
     fontsize=13
 )
-plt.xlabel("未來 P4 真實金額 (P95 Capped, 英鎊)", fontsize=11)
-plt.ylabel("10-Fold 折外預測金額 (英鎊)", fontsize=11)
+plt.xlabel(
+    "未來 P4 真實金額 (P95 Capped, 英鎊)", 
+    fontsize=11
+)
+plt.ylabel(
+    "10-Fold 折外預測金額 (英鎊)", 
+    fontsize=11
+)
 plt.legend()
 plt.grid(True, linestyle=':', alpha=0.6)
 plt.tight_layout()
@@ -534,27 +577,9 @@ plt.show()
 
 最完備的 CRM 自動化策略，是將預估 CLV（高 vs. 低）與 流失風險（高 vs. 低）兩大維度交叉，建構出四大象限干預矩陣：
 
-```mermaid
-quadrantChart
-    title "二維 CLV-流失風險 CRM 決策矩陣"
-    x-axis "低流失風險 (高黏著)" --> "高流失風險 (沉睡中)"
-    y-axis "低預估 CLV (低價值)" --> "高預估 CLV (高價值)"
-    quadrant-1 "召回黃金戰士 (高價值/高風險)"
-    quadrant-2 "VIP 尊榮維護 (高價值/低風險)"
-    quadrant-3 "自然淘汰/低成本 (低價值/高風險)"
-    quadrant-4 "潛力新客培育 (低價值/低風險)"
-```
+![二維 CLV-流失風險 CRM 決策矩陣](img/ch11_2d_clv_churn_quadrant.png)
 
-```mermaid
-flowchart TD
-    subgraph Matrix["四大象限 CRM 自動化干預腳本細節"]
-        direction TB
-        Q1["1. 召回黃金戰士 (高價值 / 高風險)<br/>特徵: 過去高消費，但預測 P4 金額趨零且 Recency > 90 天<br/>策略: 觸發高優先級警報！專屬顧問電話挽留、派發 500 元無門檻回歸禮金"]
-        Q2["2. VIP 尊榮維護 (高價值 / 低風險)<br/>特徵: 核心黃金顧客，近期剛下單且預測未來持續高金額<br/>策略: 維繫 NPS 滿意度，提供新品優先體驗權與 LINE VIP 服務，切忌打折"]
-        Q3["3. 自然淘汰 / 低成本 (低價值 / 高風險)<br/>特徵: 單次低額購買且長期未回購者<br/>策略: 停止昂貴廣告與簡訊，僅使用低成本自動化 EDM 清倉促銷觸發"]
-        Q4["4. 潛力新客培育 (低價值 / 低風險)<br/>特徵: 近期加入新客，下單頻率高但客單價尚低<br/>策略: 推播組合包 (Bundling) 與滿額免運活動，提升 AOV 轉化為 VIP"]
-    end
-```
+![四大象限 CRM 自動化干預腳本細節](img/ch11_crm_intervention_scripts.png)
 
 ---
 
@@ -562,8 +587,8 @@ flowchart TD
 
 請同學們以 3~4 人為一組，選擇以下其中一個情境，設計一套自動化行銷旅程（Marketing Automation Workflow）：
 
-1. 任務 A（高價值流失預警）： 當系統偵測到一位過往累積消費 $> $1,000$的 VIP 顧客，其 Recency 天數突破 75 天且模型預估 P4 消費下滑 80% 時，請設計包含「簡訊、Email、客服任務」的 7 天黃金召回流程。
-2. 任務 B（CPA 上限試算）： 行銷部門準備針對「高潛力新客群」進行 Meta 臉書廣告投放。若模型預估該群體未來 3 個月的平均 CLV 為 $450$，且銀行的目標毛利率為 $4$\%$，請試算該廣告活動的最高允許 CPA 應該設定為多少英鎊？
+1. 任務 A（高價值流失預警）： 當系統偵測到一位過往累積消費 $\ge \$1,000$ 的 VIP 顧客，其 Recency 天數突破 75 天且模型預估 P4 消費下滑 80% 時，請設計包含「簡訊、Email、客服任務」的 7 天黃金召回流程。
+2. 任務 B（CPA 上限試算）： 行銷部門準備針對「高潛力新客群」進行 Meta 臉書廣告投放。若模型預估該群體未來 3 個月的平均 CLV 為 \$450，且目標毛利率為 $40\%$，請試算該廣告活動的最高允許 CPA 應該設定為多少英鎊？
 
 ---
 
@@ -579,11 +604,11 @@ flowchart TD
 
 2. 模組二三大週次三階段 CLV 演進全景總結：
 
-| 模組二週次 | 章節主題 | CLV 演進階段 | 分析單元 / 技術核心 | 專屬流失率與 CLV 算式 | 關鍵商業突破與效益 |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| 第九週 | 消費者購物行為與交易 Log 探索 | 第一階段：全局單一 CLV | 交易 Log 聚合至顧客維度 + AOV 95% 離群值截斷 | 全局 Churn = 38.45% (Lifespan=2.60年)<br/>AOV 修正後全局 CLV = $3,502.80$| 成功修正 AOV 偏斜極端值（+41.69 -> +1.15），建立穩健 Baseline，但仍受限於「單一流失率一刀切」迷思。 |
-| 第十週 | RFM 模型特徵工程與 K-Means 分群 | 第二階段：按客群分級 CLV | RFM + K-Means 非監督分群 ($K=4$) | Champions Churn_k = 10.20% (Lifespan=9.80年)<br/>Champions CLV_k = $57,046.20$<br/>Hibernating CLV_k = $393.70$| 突破全局迷思！為 4 大 Persona 計算專屬流失率與分群 CLV，停發沉睡客廣告。 |
-| 第十一週 | CLV 預測模型與顧客流失預警 | 第三階段：個體化機器學習 CLV | 時間序列迴歸 + 95% 截斷 + 10-Fold CV | 個體預測 $y_i = f(X_i)$<br/>結合 Recency 判斷個體流失風險 | 實現「一對一精準 CLV 預測與流失預警」，建構 2D CRM 干預矩陣，極大化舊客留存 ROI。 |
+| 模組週次 | 章節主題 | CLV 演進階段 | 分析核心與特徵維度 | 專屬流失率與 CLV 算式 | 關鍵突破與商業效益 |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| 第九週 | 消費者購物行為與<br/>交易 Log 探索 | 第一階段：<br/>全局單一 CLV | 交易 Log 聚合至顧客維度<br/>+ AOV 95% 離群值截斷 | • 全局 Churn = 38.45%<br/>• 預期留存期 = 2.60 年<br/>• 全局 CLV = \$3,502.80 | 成功修正 AOV 偏斜（+41.69 → +1.15），建立 Baseline，揭露全局一刀切迷思。 |
+| 第十週 | RFM 特徵工程與<br/>K-Means 分群 | 第二階段：<br/>客群分級 CLV | RFM 對數與標準化工程<br/>+ K-Means 機器學習 ($K=4$) | • Champions Churn = 10.00% (10.0年)<br/>• Champions CLV = \$61,433.73<br/>• Hibernating CLV = \$490.63 | 突破全局迷思！為 4 大 Persona 計算專屬流失率與分群 CLV，停發沉睡客昂貴廣告。 |
+| 第十一週 | CLV 預測模型與<br/>顧客流失預警 | 第三階段：<br/>個體機器學習 CLV | 時間序列滑動窗口<br/>+ 95% 截斷 + 10-Fold CV | • 個體預測 $y_i = f(X_i)$<br/>• 結合 Recency 判斷個體流失風險<br/>• 10-Fold CV 折外無偏評估 | 實現一對一精準預測，建構 2D CLV-流失風險決策矩陣，驅動 CRM 自動化精準行銷。 |
 
 ---
 
